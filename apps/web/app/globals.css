@@ -3,40 +3,40 @@
 @tailwind utilities;
 
 @layer base {
-  /* ── Warp-dark inspired: deep navy + violet accent ───────────────────────── */
+  /* ── Claude-dark theme ───────────────────────────────────────────────────── */
   :root {
-    --background:         232 15% 10%;   /* #14151f  deep navy-black            */
-    --foreground:         228 20% 85%;   /* #cdd0e0  blue-tinted white          */
+    --background:         0 0% 12%;    /* #1f1f1f  neutral dark               */
+    --foreground:         0 0% 92%;    /* #ebebeb  clean white                 */
 
-    --card:               232 14% 13%;   /* #191a26  slightly lighter than bg   */
-    --card-foreground:    228 20% 85%;
+    --card:               0 0% 15%;    /* #262626  card panels                 */
+    --card-foreground:    0 0% 92%;
 
-    --popover:            232 15% 11%;
-    --popover-foreground: 228 20% 85%;
+    --popover:            0 0% 13%;
+    --popover-foreground: 0 0% 92%;
 
-    --primary:            263 70% 65%;   /* #a078f0  violet                     */
+    --primary:            263 70% 60%; /* #7c3aed  violet                      */
     --primary-foreground: 0 0% 100%;
 
-    --secondary:          232 13% 18%;
-    --secondary-foreground: 228 12% 58%;
+    --secondary:          0 0% 18%;
+    --secondary-foreground: 0 0% 72%;
 
-    --muted:              232 13% 17%;
-    --muted-foreground:   228 10% 42%;   /* dim blue-grey                       */
+    --muted:              0 0% 16%;
+    --muted-foreground:   240 4% 56%;  /* #8e8ea0  blue-gray dim               */
 
-    --accent:             263 60% 60% / 0.1;
-    --accent-foreground:  263 70% 80%;
+    --accent:             263 70% 60%;
+    --accent-foreground:  263 70% 88%;
 
     --destructive:        0 65% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --border:             232 14% 19%;   /* #21233a  subtle navy border         */
-    --input:              232 14% 14%;
-    --ring:               263 65% 65%;
-    --radius:             0.4rem;
+    --border:             0 0% 19%;    /* #303030  subtle border               */
+    --input:              0 0% 16%;
+    --ring:               263 70% 60%;
+    --radius:             0.5rem;
 
     /* Sidebar */
-    --sidebar-bg:         232 18% 8%;    /* #0e1019  darkest panel              */
-    --sidebar-border:     232 14% 16%;
+    --sidebar-bg:         0 0% 9%;     /* #171717  darkest panel               */
+    --sidebar-border:     0 0% 15%;
   }
 }
 
@@ -51,39 +51,39 @@
   h1, h2, h3, h4 { @apply tracking-tight; }
 }
 
-/* ── Scrollbars ─────────────────────────────────────────────────────────── */
+/* ── Scrollbars ──────────────────────────────────────────────────────────── */
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: hsl(232 14% 22%) transparent;
+    scrollbar-color: hsl(0 0% 22%) transparent;
   }
   .scrollbar-thin::-webkit-scrollbar { width: 3px; height: 3px; }
   .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: hsl(232 14% 24%);
+    background: hsl(0 0% 26%);
     border-radius: 9999px;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #7c3aed; }
 }
 
-/* ── Sidebar nav active — violet left bar ────────────────────────────────── */
+/* ── Nav active ──────────────────────────────────────────────────────────── */
 .nav-active {
-  background: rgba(124, 58, 237, 0.13);
+  background: rgba(124, 58, 237, 0.12);
   border-left: 2px solid #7c3aed;
   color: #c4b5fd !important;
 }
 .nav-active svg { color: #a78bfa !important; }
 
-/* ── Hover ───────────────────────────────────────────────────────────────── */
+/* ── Nav hover ───────────────────────────────────────────────────────────── */
 .nav-hover:hover {
   background: rgba(124, 58, 237, 0.07);
-  color: #cdd0e0;
+  color: #ebebeb;
 }
 
 /* ── SPL search bar ──────────────────────────────────────────────────────── */
 .spl-search {
-  background: hsl(232 16% 8%);
-  border: 1px solid hsl(232 14% 19%);
+  background: hsl(0 0% 10%);
+  border: 1px solid hsl(0 0% 20%);
   border-radius: 4px;
   font-family: "JetBrains Mono", "Fira Code", "Courier New", monospace;
 }
@@ -94,14 +94,14 @@
 
 /* ── Panel header ────────────────────────────────────────────────────────── */
 .spl-panel-hdr {
-  background: hsl(232 15% 10%);
-  border-bottom: 1px solid hsl(232 14% 19%);
+  background: hsl(0 0% 12%);
+  border-bottom: 1px solid hsl(0 0% 19%);
   padding: 8px 14px;
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: hsl(228 10% 40%);
+  color: hsl(240 4% 50%);
 }
 
 /* ── Severity chips ──────────────────────────────────────────────────────── */
@@ -128,7 +128,7 @@
 .animate-fade-in { animation: fadeIn 0.18s ease-out; }
 
 /* ── Table rows ──────────────────────────────────────────────────────────── */
-.spl-row:hover { background: rgba(139, 92, 246, 0.05); }
+.spl-row:hover { background: rgba(124, 58, 237, 0.06); }
 
 /* ── Stat accent bar ─────────────────────────────────────────────────────── */
 .stat-accent-bar {
@@ -137,13 +137,13 @@
   background: #8b5cf6;
 }
 
-/* ── Button / interactive hover purple tint ──────────────────────────────── */
+/* ── Ghost button ────────────────────────────────────────────────────────── */
 .btn-ghost {
-  color: hsl(240 4% 46%);
+  color: hsl(240 4% 48%);
   border-radius: var(--radius);
   transition: background 0.12s, color 0.12s;
 }
 .btn-ghost:hover {
-  background: rgba(139, 92, 246, 0.08);
+  background: rgba(124, 58, 237, 0.08);
   color: #c4b5fd;
 }

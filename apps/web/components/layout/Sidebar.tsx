@@ -13,8 +13,6 @@ import {
   ChevronLeft, ChevronRight, Radar,
 } from "lucide-react";
 
-// ── Nav definition ────────────────────────────────────────────────────────────
-
 const NAV = [
   {
     section: null,
@@ -29,11 +27,11 @@ const NAV = [
   {
     section: "Security",
     items: [
-      { href: "/threats",  label: "Threats",       icon: Shield,          badge: true },
-      { href: "/dns",      label: "DNS Monitor",   icon: Globe                        },
-      { href: "/wifi",     label: "WiFi Intel",    icon: Radar                        },
-      { href: "/audit",    label: "Audit Scanner", icon: ScanSearch                   },
-      { href: "/ai",       label: "AI Assistant",  icon: BotMessageSquare             },
+      { href: "/threats", label: "Threats",       icon: Shield,          badge: true },
+      { href: "/dns",     label: "DNS Monitor",   icon: Globe                        },
+      { href: "/wifi",    label: "WiFi Intel",    icon: Radar                        },
+      { href: "/audit",   label: "Audit Scanner", icon: ScanSearch                   },
+      { href: "/ai",      label: "AI Assistant",  icon: BotMessageSquare             },
     ],
   },
   {
@@ -49,18 +47,16 @@ const NAV = [
   {
     section: "Tools",
     items: [
-      { href: "/scanner",  label: "Nmap Scanner",   icon: ScanLine   },
-      { href: "/capture",  label: "Packet Capture", icon: Aperture   },
+      { href: "/scanner",  label: "Nmap Scanner",   icon: ScanLine    },
+      { href: "/capture",  label: "Packet Capture", icon: Aperture    },
       { href: "/vulnscan", label: "Vuln Scanner",   icon: ShieldAlert },
     ],
   },
 ];
 
-// ── Sidebar ───────────────────────────────────────────────────────────────────
-
 export function Sidebar() {
-  const pathname   = usePathname();
-  const unread     = useAlertsStore((s) => s.unreadCount);
+  const pathname = usePathname();
+  const unread   = useAlertsStore((s) => s.unreadCount);
   const [collapsed, setCollapsed] = useState(false);
 
   const isActive = (href: string) =>
@@ -70,38 +66,37 @@ export function Sidebar() {
     <aside
       className={cn(
         "relative flex h-screen flex-col shrink-0 border-r transition-all duration-200",
-        collapsed ? "w-[52px]" : "w-[216px]",
+        collapsed ? "w-[52px]" : "w-[220px]",
       )}
       style={{
-        background: "hsl(var(--sidebar-bg, 240 7% 7%))",
-        borderColor: "hsl(var(--sidebar-border, 240 4% 13%))",
+        background:   "hsl(var(--sidebar-bg))",
+        borderColor:  "hsl(var(--sidebar-border))",
       }}
     >
-      {/* ── Logo (traffic-light zone: 78 px left padding) ── */}
+      {/* ── Header: traffic-light zone + logo ── */}
       <div
-        className="flex h-[52px] shrink-0 items-center gap-2.5 border-b"
+        className="flex h-[52px] shrink-0 items-center border-b"
         style={{
-          borderColor: "hsl(var(--sidebar-border))",
-          paddingLeft: collapsed ? "14px" : "78px",
-          paddingRight: "10px",
-          // macOS: make this bar draggable so the window can be moved
-          WebkitAppRegion: "drag",
+          borderColor:        "hsl(var(--sidebar-border))",
+          WebkitAppRegion:    "drag",
+          paddingLeft:        collapsed ? "14px" : "76px",
+          paddingRight:       "10px",
         } as React.CSSProperties}
       >
-        {/* content must be no-drag so clicks still work */}
         <div
-          className="flex items-center gap-2.5 min-w-0"
+          className="flex items-center gap-2 min-w-0"
           style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
         >
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] overflow-hidden">
-            <Image src="/logo.png" alt="Netindavoid" width={28} height={28} priority />
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md overflow-hidden">
+            <Image src="/logo.png" alt="" width={24} height={24} priority />
           </div>
           {!collapsed && (
             <div className="min-w-0">
-              <p className="text-[12px] font-bold text-white leading-none tracking-tight truncate">
+              <p className="text-[12px] font-semibold leading-none tracking-tight truncate"
+                 style={{ color: "hsl(0 0% 90%)" }}>
                 Netindavoid
               </p>
-              <p className="text-[9px] mt-0.5 font-semibold uppercase tracking-[0.12em]"
+              <p className="text-[9px] mt-0.5 font-bold uppercase tracking-[0.14em]"
                  style={{ color: "#7c3aed" }}>
                 Security
               </p>
@@ -111,17 +106,17 @@ export function Sidebar() {
       </div>
 
       {/* ── Navigation ── */}
-      <nav className="flex-1 overflow-y-auto scrollbar-thin py-3 px-1.5 space-y-0.5">
+      <nav className="flex-1 overflow-y-auto scrollbar-thin py-2 px-1.5 space-y-px">
         {NAV.map((group, gi) => (
-          <div key={gi} className={gi > 0 ? "mt-4" : ""}>
+          <div key={gi} className={gi > 0 ? "mt-3" : ""}>
             {group.section && !collapsed && (
-              <p className="mb-1 mt-1 px-2 text-[9px] font-bold uppercase tracking-widest"
-                 style={{ color: "hsl(228 10% 30%)" }}>
-                {group.section}
-              </p>
-            )}
-            {group.section && !collapsed && (
-              <div className="mb-1.5 mx-2 border-t" style={{ borderColor: "hsl(232 14% 16%)" }} />
+              <>
+                <p className="px-2 pt-1 pb-1 text-[9px] font-bold uppercase tracking-widest"
+                   style={{ color: "hsl(240 4% 35%)" }}>
+                  {group.section}
+                </p>
+                <div className="mb-1 mx-2 border-t" style={{ borderColor: "hsl(0 0% 18%)" }} />
+              </>
             )}
 
             {group.items.map(({ href, label, icon: Icon, badge }: any) => {
@@ -133,23 +128,27 @@ export function Sidebar() {
                   href={href}
                   title={collapsed ? label : undefined}
                   className={cn(
-                    "group relative flex items-center gap-2.5 rounded-sm px-2 py-[7px] text-[12px] font-medium transition-colors duration-100",
+                    "group relative flex items-center gap-2.5 rounded-[4px] px-2 py-[6px] text-[12px] font-medium transition-colors duration-100",
                     active
                       ? "nav-active"
-                      : "nav-hover text-[hsl(228_10%_42%)] hover:text-[#cdd0e0]",
+                      : "nav-hover",
                   )}
+                  style={!active ? { color: "hsl(240 4% 56%)" } : undefined}
                 >
                   <Icon
                     className={cn(
                       "h-3.5 w-3.5 shrink-0 transition-colors",
-                      active ? "text-[#a78bfa]" : "text-[hsl(228_10%_32%)] group-hover:text-[#c4b5fd]",
+                      active
+                        ? "text-[#a78bfa]"
+                        : "group-hover:text-[#c4b5fd]",
                     )}
+                    style={!active ? { color: "hsl(240 4% 40%)" } : undefined}
                   />
                   {!collapsed && (
                     <>
                       <span className="flex-1 truncate">{label}</span>
                       {badgeN > 0 && (
-                        <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                        <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500/90 px-1 text-[9px] font-bold text-white">
                           {badgeN > 9 ? "9+" : badgeN}
                         </span>
                       )}
@@ -167,15 +166,19 @@ export function Sidebar() {
 
       {/* ── Settings ── */}
       <div className="shrink-0 border-t px-1.5 py-2"
-           style={{ borderColor: "hsl(var(--sidebar-border, 240 4% 13%))" }}>
+           style={{ borderColor: "hsl(var(--sidebar-border))" }}>
         <Link
           href="/settings"
           className={cn(
-            "group flex items-center gap-2.5 rounded-sm px-2 py-[7px] text-[12px] font-medium transition-colors duration-100",
-            isActive("/settings") ? "nav-active" : "nav-hover text-[hsl(228_10%_42%)] hover:text-[#cdd0e0]",
+            "group flex items-center gap-2.5 rounded-[4px] px-2 py-[6px] text-[12px] font-medium transition-colors duration-100",
+            isActive("/settings") ? "nav-active" : "nav-hover",
           )}
+          style={!isActive("/settings") ? { color: "hsl(240 4% 56%)" } : undefined}
         >
-          <Settings className={cn("h-3.5 w-3.5 shrink-0", isActive("/settings") ? "text-[#a78bfa]" : "text-[hsl(228_10%_30%)] group-hover:text-[#c4b5fd]")} />
+          <Settings
+            className={cn("h-3.5 w-3.5 shrink-0", isActive("/settings") ? "text-[#a78bfa]" : "group-hover:text-[#c4b5fd]")}
+            style={!isActive("/settings") ? { color: "hsl(240 4% 40%)" } : undefined}
+          />
           {!collapsed && <span>Settings</span>}
         </Link>
       </div>
@@ -185,15 +188,13 @@ export function Sidebar() {
         onClick={() => setCollapsed((c) => !c)}
         className="absolute -right-3 top-[62px] z-10 flex h-6 w-6 items-center justify-center rounded-full border transition-colors hover:border-[#7c3aed] hover:text-[#a78bfa]"
         style={{
-          background: "hsl(240 6% 10%)",
-          borderColor: "hsl(240 4% 18%)",
-          color: "hsl(240 4% 38%)",
+          background:   "hsl(0 0% 12%)",
+          borderColor:  "hsl(0 0% 20%)",
+          color:        "hsl(0 0% 40%)",
         }}
-        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        title={collapsed ? "Expand" : "Collapse"}
       >
-        {collapsed
-          ? <ChevronRight className="h-3 w-3" />
-          : <ChevronLeft  className="h-3 w-3" />}
+        {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
       </button>
     </aside>
   );

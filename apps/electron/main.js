@@ -103,7 +103,7 @@ function createLoadingWindow() {
     frame: false,
     resizable: false,
     center: true,
-    backgroundColor: '#13141a',
+    backgroundColor: '#1f1f1f',
     webPreferences: { nodeIntegration: false, contextIsolation: true },
     icon: path.join(__dirname, 'build', 'icon.icns'),
   })
@@ -121,7 +121,7 @@ function createMainWindow() {
     minHeight: 700,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 14, y: 18 },
-    backgroundColor: '#13141a',
+    backgroundColor: '#1f1f1f',
     show: false,
     icon: path.join(__dirname, 'build', 'icon.icns'),
     webPreferences: {
