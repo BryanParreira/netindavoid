@@ -1,3 +1,6 @@
+// Required for static export — actual pages load client-side via Next.js router
+export function generateStaticParams() { return [] }
+
 "use client";
 import { use } from "react";
 import useSWR from "swr";
