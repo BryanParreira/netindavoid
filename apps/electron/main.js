@@ -51,14 +51,34 @@ function setStatus(win, text) {
 }
 
 // ── API process ───────────────────────────────────────────────────────────────
+let apiLastError = ''
+
 function startAPI() {
   const uvicorn = path.join(VENV_BIN, 'uvicorn')
+
+  if (!fs.existsSync(uvicorn)) {
+    apiLastError = `uvicorn not found at:\n${uvicorn}\n\nRun: cd apps/api && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`
+    return null
+  }
+
   apiProc = spawn(uvicorn, ['main:app', '--host', '127.0.0.1', '--port', '8000'], {
     cwd: path.join(PROJECT_ROOT, 'apps', 'api'),
     env: ENV,
   })
-  apiProc.on('error', (e) => console.error('API error:', e))
-  apiProc.on('exit', (code) => { if (!isQuitting) console.warn('API exited', code) })
+
+  apiProc.stderr.on('data', (d) => {
+    const line = d.toString().trim()
+    console.error('[API]', line)
+    if (line) apiLastError = line
+  })
+  apiProc.stdout.on('data', (d) => console.log('[API]', d.toString().trim()))
+
+  apiProc.on('error', (e) => { apiLastError = e.message })
+  apiProc.on('exit', (code) => {
+    if (!isQuitting) console.warn('API exited with code', code)
+  })
+
+  return apiProc
 }
 
 function killAll() {
@@ -66,17 +86,27 @@ function killAll() {
   if (apiProc) { try { apiProc.kill('SIGTERM') } catch (_) {} }
 }
 
-function waitForAPI(timeoutMs = 120000) {
+function waitForAPI(timeoutMs = 45000) {
   return new Promise((resolve, reject) => {
     const deadline = Date.now() + timeoutMs
+
+    // Fail immediately if API process dies
+    if (apiProc) {
+      apiProc.once('exit', (code) => {
+        if (!isQuitting) reject(new Error(`API exited (code ${code})\n\n${apiLastError}`))
+      })
+    } else {
+      return reject(new Error(apiLastError || 'API process could not be started'))
+    }
+
     const check = () => {
       http.get('http://127.0.0.1:8000/health', (res) => {
         res.resume()
         if (res.statusCode < 500) return resolve()
-        if (Date.now() > deadline) return reject(new Error('API timeout'))
+        if (Date.now() > deadline) return reject(new Error(`API health check timed out.\n\n${apiLastError}`))
         setTimeout(check, 1500)
       }).on('error', () => {
-        if (Date.now() > deadline) return reject(new Error('API timeout'))
+        if (Date.now() > deadline) return reject(new Error(`API did not start within ${timeoutMs / 1000}s.\n\nLast error: ${apiLastError || 'none'}\n\nMake sure PostgreSQL and Redis are running.`))
         setTimeout(check, 1500)
       })
     }
@@ -212,6 +242,15 @@ function setupAutoUpdater() {
 }
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────
+function isAPIAlreadyUp() {
+  return new Promise((resolve) => {
+    http.get('http://127.0.0.1:8000/health', (res) => {
+      res.resume()
+      resolve(res.statusCode < 500)
+    }).on('error', () => resolve(false))
+  })
+}
+
 app.whenReady().then(async () => {
   registerAppProtocol()
 
@@ -219,15 +258,33 @@ app.whenReady().then(async () => {
   await new Promise(r => setTimeout(r, 300))
 
   setStatus(loading, 'Starting API…')
-  startAPI()
 
-  try {
-    await waitForAPI()
-  } catch (err) {
-    loading.close()
-    dialog.showErrorBox('Startup failed', 'API failed to start.\n\nCheck that PostgreSQL and Redis are running.')
-    app.quit()
-    return
+  // Reuse existing API if already running (dev sessions, previous crash-restarts)
+  const alreadyUp = await isAPIAlreadyUp()
+  if (!alreadyUp) {
+    const proc = startAPI()
+
+    // Show live stderr in loading screen so user knows what's happening
+    if (proc) {
+      proc.stderr.on('data', (d) => {
+        const line = d.toString().trim().split('\n').pop() || ''
+        if (line && !line.includes('DeprecationWarning')) {
+          setStatus(loading, line.length > 60 ? line.slice(0, 57) + '…' : line)
+        }
+      })
+    }
+
+    try {
+      await waitForAPI()
+    } catch (err) {
+      loading.close()
+      dialog.showErrorBox(
+        'Startup failed',
+        `The API could not start.\n\n${err.message}\n\nMake sure PostgreSQL and Redis are running, then relaunch Netindavoid.`
+      )
+      app.quit()
+      return
+    }
   }
 
   setStatus(loading, 'Loading…')
