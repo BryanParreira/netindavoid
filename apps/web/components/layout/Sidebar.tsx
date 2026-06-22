@@ -73,36 +73,38 @@ export function Sidebar() {
         borderColor:  "hsl(var(--sidebar-border))",
       }}
     >
-      {/* ── Header: traffic-light zone + logo ── */}
+      {/* ── Traffic light drag zone (empty — macOS buttons render here) ── */}
       <div
-        className="flex h-[52px] shrink-0 items-center border-b"
+        className="shrink-0"
         style={{
-          borderColor:        "hsl(var(--sidebar-border))",
-          WebkitAppRegion:    "drag",
-          paddingLeft:        collapsed ? "14px" : "76px",
-          paddingRight:       "10px",
+          height: "36px",
+          WebkitAppRegion: "drag",
+        } as React.CSSProperties}
+      />
+
+      {/* ── Logo — sits below traffic lights ── */}
+      <div
+        className="flex shrink-0 items-center gap-2.5 border-b px-3 pb-3"
+        style={{
+          borderColor:     "hsl(var(--sidebar-border))",
+          WebkitAppRegion: "no-drag",
         } as React.CSSProperties}
       >
-        <div
-          className="flex items-center gap-2 min-w-0"
-          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
-        >
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md overflow-hidden">
-            <Image src="/logo.png" alt="" width={24} height={24} priority />
-          </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <p className="text-[12px] font-semibold leading-none tracking-tight truncate"
-                 style={{ color: "#ededed" }}>
-                Netindavoid
-              </p>
-              <p className="text-[9px] mt-0.5 font-bold uppercase tracking-[0.14em]"
-                 style={{ color: "#8b5cf6" }}>
-                Security
-              </p>
-            </div>
-          )}
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden">
+          <Image src="/logo.png" alt="" width={28} height={28} priority />
         </div>
+        {!collapsed && (
+          <div className="min-w-0">
+            <p className="text-[13px] font-semibold leading-none tracking-tight truncate"
+               style={{ color: "#ededed" }}>
+              Netindavoid
+            </p>
+            <p className="text-[9px] mt-1 font-bold uppercase tracking-[0.14em]"
+               style={{ color: "#8b5cf6" }}>
+              Security
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ── Navigation ── */}

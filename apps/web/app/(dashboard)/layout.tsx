@@ -1,8 +1,10 @@
 "use client";
+import { Suspense } from "react";
 import { useAlertsStore } from "@/store/alerts";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { NavProgress } from "@/components/layout/NavProgress";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import toast from "react-hot-toast";
 
 function AlertWatcher() {
@@ -34,7 +36,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Sidebar />
       <AlertWatcher />
       <main className="flex flex-1 flex-col overflow-hidden">
-        {children}
+        <Suspense fallback={<PageSkeleton />}>
+          {children}
+        </Suspense>
       </main>
     </div>
   );

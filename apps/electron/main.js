@@ -140,7 +140,7 @@ function createMainWindow() {
     minWidth: 1024,
     minHeight: 700,
     titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 14, y: 18 },
+    trafficLightPosition: { x: 14, y: 11 },
     backgroundColor: '#111111',
     show: false,
     icon: path.join(__dirname, 'build', 'icon.icns'),
