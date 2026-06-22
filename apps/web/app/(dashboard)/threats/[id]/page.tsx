@@ -1,7 +1,5 @@
-// Required for static export — actual pages load client-side via Next.js router
-export function generateStaticParams() { return [] }
-
 "use client";
+export function generateStaticParams() { return [] }
 import { use } from "react";
 import useSWR from "swr";
 import { api } from "@/lib/api";
