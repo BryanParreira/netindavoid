@@ -1,0 +1,72 @@
+{
+  "name": "netindavoid",
+  "version": "1.0.0",
+  "description": "Network Security Monitoring Platform",
+  "main": "main.js",
+  "author": "Bryan Bernardo Parreira",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --mac --publish always",
+    "build:local": "electron-builder --mac --publish never",
+    "pack": "electron-builder --dir"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "@electron/notarize": "^2.5.0",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.netindavoid.app",
+    "productName": "Netindavoid",
+    "copyright": "Copyright © 2026 Bryan Bernardo Parreira",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "loading.html",
+      "notarize.js",
+      "build/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "icon": "build/icon.icns",
+      "target": [
+        { "target": "dmg", "arch": ["arm64"] },
+        { "target": "zip", "arch": ["arm64"] }
+      ],
+      "identity": "Developer ID Application: Bryan Bernardo Parreira (5PNLAR99PK)",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "dmg": {
+      "title": "Netindavoid ${version}",
+      "background": null,
+      "backgroundColor": "#111113",
+      "window": { "width": 540, "height": 380 },
+      "contents": [
+        { "x": 130, "y": 190, "type": "file" },
+        { "x": 410, "y": 190, "type": "link", "path": "/Applications" }
+      ]
+    },
+    "afterSign": "notarize.js",
+    "publish": {
+      "provider": "github",
+      "owner": "BryanParreira",
+      "repo": "netindavoid",
+      "token": "${env.GH_TOKEN}"
+    },
+    "generateUpdatesFilesForAllChannels": true
+  }
+}

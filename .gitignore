@@ -1,32 +1,30 @@
-# Secrets — never commit
-.env
-*.env
-!.env.example
-
-# Dependencies
-node_modules/
-__pycache__/
+# Python
+apps/api/.venv/
+apps/api/__pycache__/
+apps/api/**/__pycache__/
 *.pyc
-.venv/
-venv/
+*.pyo
 
-# Build output
+# Node
+apps/web/node_modules/
 apps/web/.next/
-apps/web/out/
-apps/api/*.egg-info/
+apps/electron/node_modules/
+apps/electron/dist/
 
-# Celery
-celerybeat-schedule
-celerybeat.pid
+# Secrets
+.env
+apps/api/.env
+apps/electron/.env.build
+.env.local
+*.env.local
 
 # Logs
+logs/
 *.log
 
-# OS
+# macOS
 .DS_Store
-Thumbs.db
+**/.DS_Store
 
-# IDE
-.vscode/
-.idea/
-*.swp
+# Electron build artifacts
+apps/electron/dist/
