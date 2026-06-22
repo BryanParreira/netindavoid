@@ -1,0 +1,33 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Electron deps
+        working-directory: apps/electron
+        run: npm ci
+
+      - name: Build, sign, notarize, publish
+        working-directory: apps/electron
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.CERTIFICATE_P12 }}
+          CSC_KEY_PASSWORD: ${{ secrets.CERTIFICATE_P12_PASSWORD }}
+        run: npm run build
