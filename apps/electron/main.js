@@ -15,6 +15,7 @@ const VENV_BIN = path.join(PROJECT_ROOT, 'apps', 'api', '.venv', 'bin')
 const ENV = {
   ...process.env,
   PATH: `${VENV_BIN}:${NVM_NODE}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
+  NODE_ENV: 'production',
 }
 
 let mainWindow = null
@@ -22,6 +23,15 @@ let tray = null
 let apiProc = null
 let webProc = null
 let isQuitting = false
+
+// ── Loading status helper ─────────────────────────────────────────────────────
+
+function setStatus(win, text) {
+  if (!win || win.isDestroyed()) return
+  win.webContents.executeJavaScript(
+    `document.getElementById('status').textContent = ${JSON.stringify(text)}`
+  ).catch(() => {})
+}
 
 // ── Process helpers ───────────────────────────────────────────────────────────
 
@@ -32,18 +42,31 @@ function startAPI() {
     env: ENV,
   })
   apiProc.on('error', (e) => console.error('API error:', e))
-  apiProc.on('exit', (code) => {
-    if (!isQuitting) console.warn('API exited', code)
-  })
+  apiProc.on('exit', (code) => { if (!isQuitting) console.warn('API exited', code) })
 }
 
-function startWeb() {
+function startWeb(loadingWin) {
+  const webDir = path.join(PROJECT_ROOT, 'apps', 'web')
   const npm = path.join(NVM_NODE, 'npm')
-  webProc = spawn(npm, ['run', 'dev'], {
-    cwd: path.join(PROJECT_ROOT, 'apps', 'web'),
-    env: ENV,
-    shell: false,
-  })
+  const hasBuild = fs.existsSync(path.join(webDir, '.next', 'BUILD_ID'))
+
+  if (hasBuild) {
+    // Production: instant startup (~2s)
+    webProc = spawn(npm, ['run', 'start'], { cwd: webDir, env: ENV, shell: false })
+  } else {
+    // First run: build then start (shows progress in loading screen)
+    setStatus(loadingWin, 'Building app for first run… (~1 min)')
+    webProc = spawn('sh', ['-c', 'npm run build && npm run start'], {
+      cwd: webDir, env: { ...ENV, shell: true },
+    })
+    // Update status when build finishes and start begins
+    webProc.stdout && webProc.stdout.on('data', (d) => {
+      const s = d.toString()
+      if (s.includes('Starting server') || s.includes('ready')) {
+        setStatus(loadingWin, 'Starting web server…')
+      }
+    })
+  }
   webProc.on('error', (e) => console.error('Web error:', e))
 }
 
@@ -53,7 +76,7 @@ function killAll() {
   if (webProc) { try { webProc.kill('SIGTERM') } catch (_) {} }
 }
 
-function waitForURL(url, timeoutMs = 90000) {
+function waitForURL(url, timeoutMs = 180000) {
   return new Promise((resolve, reject) => {
     const deadline = Date.now() + timeoutMs
     const check = () => {
@@ -75,12 +98,12 @@ function waitForURL(url, timeoutMs = 90000) {
 
 function createLoadingWindow() {
   const win = new BrowserWindow({
-    width: 480,
-    height: 300,
+    width: 420,
+    height: 260,
     frame: false,
     resizable: false,
     center: true,
-    backgroundColor: '#111113',
+    backgroundColor: '#13141a',
     webPreferences: { nodeIntegration: false, contextIsolation: true },
     icon: path.join(__dirname, 'build', 'icon.icns'),
   })
@@ -109,17 +132,12 @@ function createMainWindow() {
   })
 
   mainWindow.loadURL('http://localhost:3000')
-
   mainWindow.once('ready-to-show', () => mainWindow.show())
 
   mainWindow.on('close', (e) => {
-    if (!isQuitting) {
-      e.preventDefault()
-      mainWindow.hide()
-    }
+    if (!isQuitting) { e.preventDefault(); mainWindow.hide() }
   })
 
-  // Open external links in browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
     return { action: 'deny' }
@@ -151,8 +169,7 @@ function setupAutoUpdater() {
 
   autoUpdater.on('update-available', () => {
     dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'Update Available',
+      type: 'info', title: 'Update Available',
       message: 'A new version of Netindavoid is downloading in the background.',
       buttons: ['OK'],
     })
@@ -160,19 +177,14 @@ function setupAutoUpdater() {
 
   autoUpdater.on('update-downloaded', () => {
     dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'Update Ready',
+      type: 'info', title: 'Update Ready',
       message: 'Update downloaded. Netindavoid will restart to apply it.',
       buttons: ['Restart Now', 'Later'],
     }).then(({ response }) => {
-      if (response === 0) {
-        isQuitting = true
-        autoUpdater.quitAndInstall()
-      }
+      if (response === 0) { isQuitting = true; autoUpdater.quitAndInstall() }
     })
   })
 
-  // Check on startup, then every 4 hours
   autoUpdater.checkForUpdatesAndNotify().catch(() => {})
   setInterval(() => autoUpdater.checkForUpdatesAndNotify().catch(() => {}), 4 * 60 * 60 * 1000)
 }
@@ -182,12 +194,19 @@ function setupAutoUpdater() {
 app.whenReady().then(async () => {
   const loading = createLoadingWindow()
 
+  // Give loading screen time to render before spawning heavy processes
+  await new Promise(r => setTimeout(r, 300))
+
+  setStatus(loading, 'Starting API…')
   startAPI()
-  startWeb()
+
+  setStatus(loading, 'Starting web server…')
+  startWeb(loading)
 
   try {
+    // API comes up fast; web may need a build first time
     await Promise.all([
-      waitForURL('http://127.0.0.1:8000/health'),
+      waitForURL('http://127.0.0.1:8000/health').then(() => setStatus(loading, 'API ready — waiting for web…')),
       waitForURL('http://localhost:3000'),
     ])
   } catch (err) {
@@ -205,12 +224,8 @@ app.whenReady().then(async () => {
 
 app.on('before-quit', killAll)
 app.on('will-quit', killAll)
+app.on('activate', () => { if (mainWindow) mainWindow.show() })
 
-app.on('activate', () => {
-  if (mainWindow) mainWindow.show()
-})
-
-// Prevent multiple instances
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
