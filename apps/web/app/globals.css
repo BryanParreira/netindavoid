@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ── Premium dark grey + purple accent ──────────────────────────────────── */
+  :root {
+    --background:         240 6% 8%;     /* #111113  near-black, slightly cool  */
+    --foreground:         240 5% 90%;    /* #e4e4e7  zinc-200                   */
+
+    --card:               240 5% 11%;    /* #18181b  zinc-900                   */
+    --card-foreground:    240 5% 90%;
+
+    --popover:            240 5% 9%;
+    --popover-foreground: 240 5% 90%;
+
+    --primary:            263 70% 70%;   /* #a78bfa  violet-400                 */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary:          240 5% 15%;
+    --secondary-foreground: 240 4% 62%;
+
+    --muted:              240 5% 14%;
+    --muted-foreground:   240 4% 46%;    /* #71717a  zinc-500                   */
+
+    --accent:             263 70% 70% / 0.08;
+    --accent-foreground:  263 70% 80%;
+
+    --destructive:        0 65% 52%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border:             240 4% 16%;    /* #27272a  zinc-800                   */
+    --input:              240 5% 12%;
+    --ring:               263 70% 70%;
+    --radius:             0.35rem;
+
+    /* Sidebar */
+    --sidebar-bg:         240 7% 7%;     /* #0f0f11  darkest                    */
+    --sidebar-border:     240 4% 13%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  html { color-scheme: dark; }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: Inter, "Helvetica Neue", system-ui, sans-serif;
+    font-size: 13px;
+  }
+  h1, h2, h3, h4 { @apply tracking-tight; }
+}
+
+/* ── Scrollbars ─────────────────────────────────────────────────────────── */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(240 4% 18%) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar { width: 4px; height: 4px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(240 4% 20%);
+    border-radius: 9999px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #7c3aed; }
+}
+
+/* ── Sidebar nav active — purple left bar ────────────────────────────────── */
+.nav-active {
+  background: rgba(139, 92, 246, 0.1);
+  border-left: 2px solid #8b5cf6;
+  color: #c4b5fd !important;
+}
+.nav-active svg { color: #a78bfa !important; }
+
+/* ── Hover: light purple tint ────────────────────────────────────────────── */
+.nav-hover:hover {
+  background: rgba(139, 92, 246, 0.06);
+  color: #e4e4e7;
+}
+
+/* ── SPL search bar ──────────────────────────────────────────────────────── */
+.spl-search {
+  background: hsl(240 7% 6%);
+  border: 1px solid hsl(240 4% 16%);
+  border-radius: 4px;
+  font-family: "JetBrains Mono", "Fira Code", "Courier New", monospace;
+}
+.spl-search:focus-within {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.18);
+}
+
+/* ── Panel header ────────────────────────────────────────────────────────── */
+.spl-panel-hdr {
+  background: hsl(240 6% 9%);
+  border-bottom: 1px solid hsl(240 4% 16%);
+  padding: 8px 14px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: hsl(240 4% 44%);
+}
+
+/* ── Severity chips ──────────────────────────────────────────────────────── */
+.sev { border-radius: 3px; padding: 1px 6px; font-size: 10px; font-weight: 600; }
+.sev-critical { background: rgba(239,68,68,.14);  color: #f87171; border: 1px solid rgba(239,68,68,.28); }
+.sev-error    { background: rgba(249,115,22,.14); color: #fb923c; border: 1px solid rgba(249,115,22,.28); }
+.sev-warning  { background: rgba(234,179,8,.14);  color: #facc15; border: 1px solid rgba(234,179,8,.28); }
+.sev-info     { background: rgba(139,92,246,.14); color: #a78bfa; border: 1px solid rgba(139,92,246,.28); }
+.sev-notice   { background: rgba(99,102,241,.14); color: #818cf8; border: 1px solid rgba(99,102,241,.28); }
+
+/* ── Live dot ────────────────────────────────────────────────────────────── */
+.live-dot { @apply relative inline-flex h-2 w-2; }
+.live-dot::before {
+  content: "";
+  @apply absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping;
+}
+.live-dot::after {
+  content: "";
+  @apply relative inline-flex h-2 w-2 rounded-full bg-emerald-500;
+}
+
+/* ── Fade in ─────────────────────────────────────────────────────────────── */
+@keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+.animate-fade-in { animation: fadeIn 0.18s ease-out; }
+
+/* ── Table rows ──────────────────────────────────────────────────────────── */
+.spl-row:hover { background: rgba(139, 92, 246, 0.05); }
+
+/* ── Stat accent bar ─────────────────────────────────────────────────────── */
+.stat-accent-bar {
+  position: absolute; left: 0; top: 10px; bottom: 10px;
+  width: 2px; border-radius: 9999px;
+  background: #8b5cf6;
+}
+
+/* ── Button / interactive hover purple tint ──────────────────────────────── */
+.btn-ghost {
+  color: hsl(240 4% 46%);
+  border-radius: var(--radius);
+  transition: background 0.12s, color 0.12s;
+}
+.btn-ghost:hover {
+  background: rgba(139, 92, 246, 0.08);
+  color: #c4b5fd;
+}

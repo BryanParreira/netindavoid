@@ -1,0 +1,54 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100" height="100" rx="16" fill="#0a0a0a"/>
+
+  <defs>
+    <!-- Left leaf: slightly darker silver -->
+    <linearGradient id="leafGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#b0b0b0"/>
+      <stop offset="100%" stop-color="#d8d8d8"/>
+    </linearGradient>
+    <!-- Right arm: brighter white -->
+    <linearGradient id="armGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e0e0e0"/>
+    </linearGradient>
+  </defs>
+
+  <!--
+    LEFT LEAF:
+    - Outer edge: sweeps from top-left (22,16), bows out left to ~(14,48), back in to V point (49,84)
+    - Inner edge (concave): from V point (49,84) curves back up with concave right face to (34,18)
+    - Top: rounded curve connecting inner/outer at top
+  -->
+  <path
+    d="
+      M 34 16
+      C 28 14, 18 18, 14 30
+      C 10 44, 14 58, 22 68
+      C 31 79, 42 84, 49 84
+      C 44 76, 38 66, 36 54
+      C 34 42, 36 28, 40 20
+      C 38 16, 36 16, 34 16
+      Z
+    "
+    fill="url(#leafGrad)"
+  />
+
+  <!--
+    RIGHT ARM:
+    - Straight clean stroke from V point (49,84) up to (80,14)
+    - Rounded ends, slightly tapered — drawn as a filled path so it can be slightly wider at bottom
+  -->
+  <path
+    d="
+      M 44 84
+      C 46 84, 48 84, 50 82
+      L 82 14
+      C 80 13, 77 13, 76 15
+      L 46 80
+      C 45 82, 44 83, 44 84
+      Z
+    "
+    fill="url(#armGrad)"
+  />
+</svg>

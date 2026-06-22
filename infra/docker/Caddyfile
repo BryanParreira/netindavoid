@@ -1,0 +1,47 @@
+{
+    # Set ACME_EMAIL env var for Let's Encrypt cert notifications
+    email {$ACME_EMAIL:admin@example.com}
+}
+
+# Use CADDY_DOMAIN env var. Falls back to localhost (HTTP only, for dev).
+{$CADDY_DOMAIN:localhost} {
+    # WebSocket — must match before /api/* to avoid strip conflict
+    handle /ws/* {
+        reverse_proxy api:8000 {
+            header_up Connection "Upgrade"
+            header_up Upgrade  "websocket"
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    # API — strip /api prefix so FastAPI sees /api/v1/... directly
+    handle /api/* {
+        reverse_proxy api:8000 {
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # Frontend SPA — everything else
+    handle {
+        reverse_proxy web:3000 {
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    encode gzip
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options    "nosniff"
+        X-Frame-Options           "SAMEORIGIN"
+        Referrer-Policy           "strict-origin-when-cross-origin"
+        Permissions-Policy        "camera=(), microphone=(), geolocation=()"
+        -Server
+    }
+
+    log {
+        output stderr
+        level  ERROR
+    }
+}

@@ -1,0 +1,60 @@
+# ── Web framework ─────────────────────────────────────────────────────────────
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+python-multipart==0.0.20
+
+# ── Database ──────────────────────────────────────────────────────────────────
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+alembic==1.14.0
+psycopg2-binary==2.9.10
+
+# ── Cache / Messaging ─────────────────────────────────────────────────────────
+redis[hiredis]==5.2.1
+celery[redis]==5.4.0
+
+# ── Auth & Security ───────────────────────────────────────────────────────────
+python-jose[cryptography]==3.3.0
+passlib[argon2]==1.7.4
+argon2-cffi==23.1.0
+pyotp==2.9.0
+qrcode[pil]==8.0
+cryptography==43.0.3
+slowapi==0.1.9
+
+# ── Validation ────────────────────────────────────────────────────────────────
+pydantic==2.10.3
+pydantic-settings==2.7.0
+email-validator==2.2.0
+
+# ── Networking / Scanning ─────────────────────────────────────────────────────
+python-nmap==0.7.1
+scapy==2.6.1
+netaddr==1.3.0
+httpx==0.28.1
+
+# ── Data processing ───────────────────────────────────────────────────────────
+pandas==2.2.3
+orjson==3.10.12
+
+# ── Notifications ─────────────────────────────────────────────────────────────
+aiosmtplib==3.0.2
+
+# ── Reports ───────────────────────────────────────────────────────────────────
+reportlab==4.2.5
+openpyxl==3.1.5
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+python-dotenv==1.0.1
+structlog==24.4.0
+tenacity==9.0.0
+geopy==2.4.1
+geoip2==4.8.1
+paramiko==3.5.0
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0
+httpx==0.28.1
+factory-boy==3.3.1
