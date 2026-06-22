@@ -20,6 +20,14 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Build web (static export — no Node server needed)
+        working-directory: apps/web
+        run: |
+          npm ci --legacy-peer-deps
+          # Remove mock API routes — static export cannot include API routes
+          rm -rf app/api
+          NEXT_BUILD_TARGET=electron npm run build
+
       - name: Install Electron deps
         working-directory: apps/electron
         run: npm ci
