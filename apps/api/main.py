@@ -126,8 +126,8 @@ async def _sync_logs_direct(tenant_id: str):
             msg = f"[{a.severity.upper()}] {a.title}: {a.description}"
             await _ingest_one(db, tenant_id, msg,
                 timestamp=a.triggered_at, index_name="security",
-                source=f"alert:{a.source}", sourcetype="netindavoid:alert",
-                host="netindavoid",
+                source=f"alert:{a.source}", sourcetype="vex:alert",
+                host="vex",
                 extra={"alert_id": str(a.id), "severity": a.severity,
                        "category": a.category, "status": a.status},
                 redis=redis)
@@ -153,7 +153,7 @@ async def _sync_logs_direct(tenant_id: str):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Netindavoid API starting", env=settings.APP_ENV)
+    logger.info("Vex API starting", env=settings.APP_ENV)
     await init_db()
     await bootstrap_admin()
 
@@ -182,7 +182,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Netindavoid API",
+    title="Vex API",
     description="Network Security Monitoring Platform — Splunk-compatible HEC, real-time search, device discovery",
     version="1.0.0",
     docs_url="/docs",
@@ -247,4 +247,4 @@ async def version():
 
 @app.get("/")
 async def root():
-    return {"name": "Netindavoid", "version": "1.0.4", "docs": "/docs"}
+    return {"name": "Vex", "version": "1.0.4", "docs": "/docs"}

@@ -128,14 +128,14 @@ async def seed(clear: bool = False) -> None:
 
             user = User(
                 tenant_id=tenant.id,
-                email="admin@netindavoid.local",
+                email="admin@vex.local",
                 display_name="Admin",
                 hashed_password=hash_password("DemoPassword123!"),
                 role=UserRole.ADMIN,
             )
             db.add(user)
             await db.flush()
-            logger.info("Created demo user", email="admin@netindavoid.local", password="DemoPassword123!")
+            logger.info("Created demo user", email="admin@vex.local", password="DemoPassword123!")
 
         # Devices
         device_ids: list[uuid.UUID] = []
@@ -261,7 +261,7 @@ async def seed(clear: bool = False) -> None:
         logger.info("Seed complete", tenant=tenant.name)
         print("\n" + "=" * 60)
         print("  DEMO CREDENTIALS")
-        print("  Email:    admin@netindavoid.local")
+        print("  Email:    admin@vex.local")
         print("  Password: DemoPassword123!")
         print("=" * 60 + "\n")
 

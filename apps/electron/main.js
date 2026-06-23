@@ -8,7 +8,7 @@ const fs = require('fs')
 const url = require('url')
 
 // ── Project root ──────────────────────────────────────────────────────────────
-const PROJECT_ROOT = process.env.NETINDAVOID_DIR ||
+const PROJECT_ROOT = process.env.VEX_DIR ||
   path.join(os.homedir(), 'Desktop', 'netindavoid')
 
 const NVM_NODE = path.join(os.homedir(), '.nvm', 'versions', 'node', 'v20.19.5', 'bin')

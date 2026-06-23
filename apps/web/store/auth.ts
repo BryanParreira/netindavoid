@@ -22,7 +22,7 @@ interface AuthState {
 
 const MOCK_USER_SEED: AuthUser = {
   id: "00000000-0000-0000-0000-000000000001",
-  email: "admin@netindavoid.local",
+  email: "admin@vex.local",
   display_name: "Admin",
   role: "admin",
   tenant_id: "00000000-0000-0000-0000-000000000000",
@@ -51,6 +51,6 @@ export const useAuthStore = create<AuthState>()(
       },
       isAuthenticated: () => !!get().accessToken,
     }),
-    { name: "netindavoid-auth", partialize: (s) => ({ user: s.user, accessToken: s.accessToken, refreshToken: s.refreshToken }) }
+    { name: "vex-auth", partialize: (s) => ({ user: s.user, accessToken: s.accessToken, refreshToken: s.refreshToken }) }
   )
 );

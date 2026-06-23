@@ -118,7 +118,7 @@ def http_security_check(ip: str, port: int = 80, use_https: bool = False,
     ]
 
     try:
-        req = urllib.request.Request(url, headers={"Host": host_header, "User-Agent": "NetindavoidAudit/1.0"})
+        req = urllib.request.Request(url, headers={"Host": host_header, "User-Agent": "VexAudit/1.0"})
         ctx = ssl.create_default_context() if use_https else None
         if ctx:
             ctx.check_hostname = False

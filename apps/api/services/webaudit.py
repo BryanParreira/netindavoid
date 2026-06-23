@@ -83,7 +83,7 @@ def _fetch(url: str, method: str = "GET", timeout: float = 8.0,
            extra_headers: dict | None = None) -> tuple[int, dict[str, str], str]:
     """Return (status_code, headers_lower, body[:4096])."""
     req = urllib.request.Request(url, method=method,
-                                  headers={"User-Agent": "NetindavoidAudit/1.0"})
+                                  headers={"User-Agent": "VexAudit/1.0"})
     if extra_headers:
         for k, v in extra_headers.items():
             req.add_header(k, v)

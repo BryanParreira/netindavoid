@@ -8,7 +8,7 @@ const agoMin = (m: number) => new Date(now.getTime() - m * 60_000).toISOString()
 export const MOCK_USER = {
   id: "00000000-0000-0000-0000-000000000001",
   tenant_id: "00000000-0000-0000-0000-000000000000",
-  email: "admin@netindavoid.local",
+  email: "admin@vex.local",
   display_name: "Admin",
   role: "admin",
   totp_enabled: false,

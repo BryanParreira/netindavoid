@@ -292,8 +292,8 @@ async def sync_internal(
             timestamp   = a.triggered_at,
             index_name  = "security",
             source      = f"alert:{a.source}",
-            sourcetype  = "netindavoid:alert",
-            host        = "netindavoid",
+            sourcetype  = "vex:alert",
+            host        = "vex",
             extra       = {
                 "alert_id": str(a.id), "severity": a.severity,
                 "category": a.category, "status": a.status,
@@ -342,8 +342,8 @@ async def sync_internal(
             timestamp   = s.completed_at,
             index_name  = "network",
             source      = "scan",
-            sourcetype  = "netindavoid:scan",
-            host        = "netindavoid",
+            sourcetype  = "vex:scan",
+            host        = "vex",
             extra       = {
                 "scan_type": s.scan_type, "status": s.status,
                 "devices_found": str(s.devices_found), "new_devices": str(s.new_devices),

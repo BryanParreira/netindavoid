@@ -59,7 +59,7 @@ const PANELS: PanelDef[] = [
   },
   {
     id: "alerts-count", title: "Security Alerts", span: 1,
-    query: "sourcetype=netindavoid:alert | stats count by severity", timeRange: "last_7d", vizType: "table",
+    query: "sourcetype=vex:alert | stats count by severity", timeRange: "last_7d", vizType: "table",
   },
 ];
 

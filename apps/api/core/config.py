@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     FERNET_KEY: str = ""
 
     # TOTP
-    TOTP_ISSUER_NAME: str = "Netindavoid"
+    TOTP_ISSUER_NAME: str = "Vex"
 
     # AI
     AI_SERVICE_URL: str = "http://ai-service:8001"
@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     PIHOLE_API_KEY: str = ""
 
     # Bootstrap admin
-    ADMIN_EMAIL: str = "admin@netindavoid.local"
+    ADMIN_EMAIL: str = "admin@vex.local"
     ADMIN_PASSWORD: str = "changeme"
     ADMIN_TENANT_NAME: str = "Home Network"
 
@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
-    SMTP_FROM: str = "alerts@netindavoid.local"
+    SMTP_FROM: str = "alerts@vex.local"
     SLACK_WEBHOOK_URL: str = ""
     DISCORD_WEBHOOK_URL: str = ""
 

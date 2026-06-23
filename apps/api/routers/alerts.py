@@ -55,7 +55,7 @@ _REMEDIATION: dict[str, list[str]] = {
         "If this is a legitimate violation, remediate and document it.",
     ],
     "system": [
-        "Review Netindavoid system logs for more details.",
+        "Review Vex system logs for more details.",
         "Ensure all services are healthy via the /health endpoint.",
         "Check the scan schedule and confirm network access is intact.",
     ],
