@@ -71,13 +71,13 @@ function MonitorRow({ m }: { m: any }) {
         <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <div>
           <p className="text-xs font-medium text-foreground">{m.name}</p>
-          <p className="text-[10px] text-muted-foreground font-mono">{m.target}</p>
+          <p className="text-[10px] text-muted-foreground font-mono">{m.ip}</p>
         </div>
       </div>
 
       {/* Heartbeat */}
       <div className="flex-1 min-w-0">
-        <Heartbeat beats={m.heartbeat} />
+        <Heartbeat beats={m.beats ?? []} />
       </div>
 
       {/* Response time */}

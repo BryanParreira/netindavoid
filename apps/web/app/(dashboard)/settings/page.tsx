@@ -92,7 +92,7 @@ export default function SettingsPage() {
 
           <Section icon={Server} title="About">
             <div className="space-y-1 text-[11px] font-mono" style={{ color: "hsl(240 4% 44%)" }}>
-              <p>Netindavoid v1.0.0</p>
+              <p>Vex Security Monitor</p>
               {version && (
                 <>
                   <p>Commit: <span style={{ color: "#a78bfa" }}>{version.commit}</span></p>

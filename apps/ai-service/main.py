@@ -16,9 +16,9 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-app = FastAPI(title="Netindavoid AI Service", version="1.0.0")
+app = FastAPI(title="Vex AI Service", version="1.0.0")
 
-SYSTEM_PROMPT = """You are a network security assistant for Netindavoid, a home/small-business network monitoring platform.
+SYSTEM_PROMPT = """You are a network security assistant for Vex, a home/small-business network monitoring platform.
 You have access to live data from the user's network. Answer questions clearly and concisely in plain English.
 Do not use jargon without explanation. When you see threats, explain what they mean and what the user should do.
 Keep answers under 3 paragraphs unless a longer explanation is genuinely needed."""

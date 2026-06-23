@@ -6,7 +6,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: { default: "Netindavoid", template: "%s · Netindavoid" },
+  title: { default: "Vex", template: "%s · Vex" },
   description: "Network Security Monitoring Platform",
   icons: { icon: "/logo.png" },
 };

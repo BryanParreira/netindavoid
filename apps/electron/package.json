@@ -1,6 +1,6 @@
 {
-  "name": "netindavoid",
-  "version": "1.1.4",
+  "name": "vex",
+  "version": "1.1.5",
   "description": "Network Security Monitoring Platform",
   "main": "main.js",
   "author": "Bryan Bernardo Parreira",
@@ -21,8 +21,8 @@
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "com.netindavoid.app",
-    "productName": "Netindavoid",
+    "appId": "com.vex.app",
+    "productName": "Vex",
     "copyright": "Copyright \u00a9 2026 Bryan Bernardo Parreira",
     "directories": {
       "output": "dist",
@@ -71,7 +71,7 @@
       "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "dmg": {
-      "title": "Netindavoid ${version}",
+      "title": "Vex ${version}",
       "background": null,
       "backgroundColor": "#111113",
       "window": {
@@ -97,7 +97,7 @@
     "publish": {
       "provider": "github",
       "owner": "BryanParreira",
-      "repo": "netindavoid"
+      "repo": "vex"
     },
     "generateUpdatesFilesForAllChannels": true
   }

@@ -97,11 +97,11 @@ export function Sidebar() {
           <div className="min-w-0">
             <p className="text-[13px] font-semibold leading-none tracking-tight truncate"
                style={{ color: "#ededed" }}>
-              Netindavoid
+              Vex
             </p>
             <p className="text-[9px] mt-1 font-bold uppercase tracking-[0.14em]"
                style={{ color: "#8b5cf6" }}>
-              Security
+              Security Monitor
             </p>
           </div>
         )}

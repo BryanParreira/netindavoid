@@ -203,9 +203,9 @@ function createTray() {
   const img = nativeImage.createFromPath(path.join(__dirname, 'build', 'icon.icns'))
   const trayIcon = img.resize({ width: 18, height: 18 })
   tray = new Tray(trayIcon)
-  tray.setToolTip('Netindavoid')
+  tray.setToolTip('Vex')
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Open Netindavoid', click: () => { mainWindow?.show() } },
+    { label: 'Open Vex', click: () => { mainWindow?.show() } },
     { type: 'separator' },
     { label: 'Check for Updates', click: () => autoUpdater.checkForUpdatesAndNotify() },
     { type: 'separator' },
@@ -222,7 +222,7 @@ function setupAutoUpdater() {
   autoUpdater.on('update-available', () => {
     dialog.showMessageBox(mainWindow, {
       type: 'info', title: 'Update Available',
-      message: 'A new version of Netindavoid is downloading in the background.',
+      message: 'A new version of Vex is downloading in the background.',
       buttons: ['OK'],
     })
   })
@@ -230,7 +230,7 @@ function setupAutoUpdater() {
   autoUpdater.on('update-downloaded', () => {
     dialog.showMessageBox(mainWindow, {
       type: 'info', title: 'Update Ready',
-      message: 'Update downloaded. Netindavoid will restart to apply it.',
+      message: 'Update downloaded. Vex will restart to apply it.',
       buttons: ['Restart Now', 'Later'],
     }).then(({ response }) => {
       if (response === 0) { isQuitting = true; autoUpdater.quitAndInstall() }
@@ -280,7 +280,7 @@ app.whenReady().then(async () => {
       loading.close()
       dialog.showErrorBox(
         'Startup failed',
-        `The API could not start.\n\n${err.message}\n\nMake sure PostgreSQL and Redis are running, then relaunch Netindavoid.`
+        `The API could not start.\n\n${err.message}\n\nMake sure PostgreSQL and Redis are running, then relaunch Vex.`
       )
       app.quit()
       return

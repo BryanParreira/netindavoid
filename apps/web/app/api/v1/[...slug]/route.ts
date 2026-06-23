@@ -98,7 +98,7 @@ export async function POST(
     return NextResponse.json(MOCK_TOKEN_RESPONSE, { status: path === "auth/register" ? 201 : 200 });
   }
   if (path === "auth/totp/setup") {
-    return NextResponse.json({ secret: "JBSWY3DPEHPK3PXP", qr_code_base64: "", uri: "otpauth://totp/Netindavoid:admin@netindavoid.local?secret=JBSWY3DPEHPK3PXP" });
+    return NextResponse.json({ secret: "JBSWY3DPEHPK3PXP", qr_code_base64: "", uri: "otpauth://totp/Vex:admin@vex.local?secret=JBSWY3DPEHPK3PXP" });
   }
   if (path === "auth/totp/verify") return NextResponse.json({ enabled: true, backup_codes: ["A1B2", "C3D4", "E5F6", "G7H8"] });
   if (path === "auth/change-password") return new NextResponse(null, { status: 204 });
