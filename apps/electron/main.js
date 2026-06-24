@@ -56,13 +56,11 @@ let apiLastError = ''
 const API_DIR   = path.join(PROJECT_ROOT, 'apps', 'api')
 const UVICORN   = path.join(VENV_BIN, 'uvicorn')
 const PIP       = path.join(VENV_BIN, 'pip')
-const PYTHON3   = (() => {
-  // Try Homebrew, system, nvm in order
-  for (const p of ['/opt/homebrew/bin/python3', '/usr/local/bin/python3', '/usr/bin/python3']) {
-    if (fs.existsSync(p)) return p
-  }
-  return 'python3'
-})()
+
+// Run a shell command via the user's login shell so PATH includes pyenv/conda/python.org installs.
+function shellRun(cmd, opts = {}) {
+  return spawn('/bin/zsh', ['-l', '-c', cmd], opts)
+}
 
 // Auto-setup: create .venv and install requirements if uvicorn is missing.
 // Called from the app.whenReady() flow with the loading window for status updates.
@@ -70,17 +68,18 @@ function setupVenv(loadingWin) {
   return new Promise((resolve, reject) => {
     setStatus(loadingWin, 'First launch: setting up Python environment…')
 
-    const venvProc = spawn(PYTHON3, ['-m', 'venv', '.venv'], { cwd: API_DIR })
-    venvProc.on('error', (e) => reject(new Error(`python3 not found: ${e.message}\n\nInstall Python 3 from python.org then relaunch Vex.`)))
+    const venvProc = shellRun(`python3 -m venv "${path.join(API_DIR, '.venv')}"`, { cwd: API_DIR })
+    let venvErr = ''
+    venvProc.stderr.on('data', (d) => { venvErr += d.toString() })
+    venvProc.on('error', (e) => reject(new Error(`Could not launch shell: ${e.message}`)))
     venvProc.on('exit', (code) => {
-      if (code !== 0) return reject(new Error(`python3 -m venv failed (exit ${code}). Install Python 3 from python.org.`))
+      if (code !== 0) return reject(new Error(
+        `Python environment setup failed.\n\n${venvErr.slice(-300)}\n\nInstall Python 3 from python.org then relaunch Vex.`
+      ))
 
       setStatus(loadingWin, 'Installing dependencies (1–2 min first time)…')
 
-      const pipProc = spawn(PIP, ['install', '-r', 'requirements.txt', '--quiet'], {
-        cwd: API_DIR,
-        env: { ...process.env, PATH: `/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin` },
-      })
+      const pipProc = shellRun(`"${PIP}" install -r requirements.txt --quiet`, { cwd: API_DIR })
       let pipErr = ''
       pipProc.stderr.on('data', (d) => { pipErr += d.toString() })
       pipProc.on('error', (e) => reject(new Error(`pip failed: ${e.message}`)))
