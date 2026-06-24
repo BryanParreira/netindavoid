@@ -57,65 +57,59 @@ const API_DIR   = path.join(PROJECT_ROOT, 'apps', 'api')
 const UVICORN   = path.join(VENV_BIN, 'uvicorn')
 const PIP       = path.join(VENV_BIN, 'pip')
 
-// Find python3 by checking all known install locations — avoids spawning a shell.
-function findPython3() {
-  const candidates = [
-    '/opt/homebrew/bin/python3',          // Homebrew (Apple Silicon)
-    '/usr/local/bin/python3',             // Homebrew (Intel) or manual symlink
-    '/usr/bin/python3',                   // macOS system (via Xcode CLT)
-    // python.org installer — creates versioned Framework + symlinks
-    ...['Current','3.13','3.12','3.11','3.10','3.9'].map(v =>
-      `/Library/Frameworks/Python.framework/Versions/${v}/bin/python3`
-    ),
-    // pyenv default shim location
-    path.join(os.homedir(), '.pyenv', 'shims', 'python3'),
-  ]
-  for (const p of candidates) {
-    if (fs.existsSync(p)) return p
-  }
-  // Last resort: try `which` via execSync with a wide PATH
-  try {
-    const { execSync } = require('child_process')
-    const wide = '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin' +
-      ':/Library/Frameworks/Python.framework/Versions/Current/bin'
-    const found = execSync('which python3', { env: { PATH: wide }, encoding: 'utf8' }).trim()
-    if (found && fs.existsSync(found)) return found
-  } catch (_) {}
-  return null
-}
-
-// Auto-setup: create .venv and install requirements if uvicorn is missing.
-// Called from the app.whenReady() flow with the loading window for status updates.
+// Auto-setup: write a .command file and open it in Terminal.app.
+// Returns a Promise that resolves once the user confirms setup is done,
+// or rejects with instructions if we can't open Terminal.
 function setupVenv(loadingWin) {
   return new Promise((resolve, reject) => {
-    const python3 = findPython3()
-    if (!python3) {
+    const scriptPath = path.join(os.tmpdir(), 'vex-setup.command')
+    const script = [
+      '#!/bin/bash',
+      'set -e',
+      `cd "${API_DIR}"`,
+      'echo ""',
+      'echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"',
+      'echo "  Vex — first-launch setup"',
+      'echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"',
+      'echo ""',
+      'echo "Step 1/2  Creating Python environment..."',
+      'python3 -m venv .venv',
+      'echo "Step 2/2  Installing dependencies (1-2 min)..."',
+      '.venv/bin/pip install -r requirements.txt --quiet',
+      'echo ""',
+      'echo "✓ Setup complete!"',
+      'echo "  You can close this window and relaunch Vex."',
+      'echo ""',
+      'read -p "Press Enter to close..."',
+    ].join('\n')
+
+    try {
+      fs.writeFileSync(scriptPath, script, { mode: 0o755 })
+    } catch (e) {
       return reject(new Error(
-        'Python 3 not found on this Mac.\n\nInstall Python 3 from python.org then relaunch Vex.'
+        'Could not write setup script.\n\n' +
+        'Run this in Terminal instead:\n\n' +
+        `cd "${API_DIR}"\n` +
+        'python3 -m venv .venv\n' +
+        '.venv/bin/pip install -r requirements.txt\n\n' +
+        'Then relaunch Vex.'
       ))
     }
 
-    setStatus(loadingWin, 'First launch: setting up Python environment…')
-
-    const venvProc = spawn(python3, ['-m', 'venv', path.join(API_DIR, '.venv')], { cwd: API_DIR })
-    let venvErr = ''
-    venvProc.stderr.on('data', (d) => { venvErr += d.toString() })
-    venvProc.on('error', (e) => reject(new Error(`venv creation failed: ${e.message}`)))
-    venvProc.on('exit', (code) => {
-      if (code !== 0) return reject(new Error(
-        `Python environment setup failed.\n\n${venvErr.slice(-300)}`
-      ))
-
-      setStatus(loadingWin, 'Installing dependencies (1–2 min first time)…')
-
-      const pipProc = spawn(PIP, ['install', '-r', 'requirements.txt', '--quiet'], { cwd: API_DIR })
-      let pipErr = ''
-      pipProc.stderr.on('data', (d) => { pipErr += d.toString() })
-      pipProc.on('error', (e) => reject(new Error(`pip failed: ${e.message}`)))
-      pipProc.on('exit', (code) => {
-        if (code !== 0) return reject(new Error(`pip install failed:\n${pipErr.slice(-300)}`))
-        resolve()
-      })
+    // shell.openPath opens .command files in Terminal.app
+    shell.openPath(scriptPath).then((err) => {
+      if (err) {
+        return reject(new Error(
+          'Could not open Terminal.\n\n' +
+          'Run this manually:\n\n' +
+          `cd "${API_DIR}"\n` +
+          'python3 -m venv .venv\n' +
+          '.venv/bin/pip install -r requirements.txt\n\n' +
+          'Then relaunch Vex.'
+        ))
+      }
+      // Resolve with special sentinel — caller will show "relaunch" dialog and quit
+      resolve('needs-relaunch')
     })
   })
 }
@@ -325,11 +319,24 @@ app.whenReady().then(async () => {
   if (!alreadyUp) {
     // Auto-setup Python venv on first launch (or after venv was deleted)
     if (!fs.existsSync(UVICORN)) {
+      let setupResult
       try {
-        await setupVenv(loading)
+        setupResult = await setupVenv(loading)
       } catch (err) {
         loading.close()
         dialog.showErrorBox('Setup failed', err.message)
+        app.quit()
+        return
+      }
+      if (setupResult === 'needs-relaunch') {
+        loading.close()
+        dialog.showMessageBoxSync({
+          type: 'info',
+          title: 'Setup running in Terminal',
+          message: 'Setup running in Terminal',
+          detail: 'A Terminal window just opened to install Vex dependencies.\n\nWhen it shows "✓ Setup complete!", close the Terminal and relaunch Vex.',
+          buttons: ['Quit Vex'],
+        })
         app.quit()
         return
       }
