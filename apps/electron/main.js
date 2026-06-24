@@ -53,16 +53,48 @@ function setStatus(win, text) {
 // ── API process ───────────────────────────────────────────────────────────────
 let apiLastError = ''
 
-function startAPI() {
-  const uvicorn = path.join(VENV_BIN, 'uvicorn')
-
-  if (!fs.existsSync(uvicorn)) {
-    apiLastError = `uvicorn not found at:\n${uvicorn}\n\nRun: cd apps/api && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`
-    return null
+const API_DIR   = path.join(PROJECT_ROOT, 'apps', 'api')
+const UVICORN   = path.join(VENV_BIN, 'uvicorn')
+const PIP       = path.join(VENV_BIN, 'pip')
+const PYTHON3   = (() => {
+  // Try Homebrew, system, nvm in order
+  for (const p of ['/opt/homebrew/bin/python3', '/usr/local/bin/python3', '/usr/bin/python3']) {
+    if (fs.existsSync(p)) return p
   }
+  return 'python3'
+})()
 
-  apiProc = spawn(uvicorn, ['main:app', '--host', '127.0.0.1', '--port', '8000'], {
-    cwd: path.join(PROJECT_ROOT, 'apps', 'api'),
+// Auto-setup: create .venv and install requirements if uvicorn is missing.
+// Called from the app.whenReady() flow with the loading window for status updates.
+function setupVenv(loadingWin) {
+  return new Promise((resolve, reject) => {
+    setStatus(loadingWin, 'First launch: setting up Python environment…')
+
+    const venvProc = spawn(PYTHON3, ['-m', 'venv', '.venv'], { cwd: API_DIR })
+    venvProc.on('error', (e) => reject(new Error(`python3 not found: ${e.message}\n\nInstall Python 3 from python.org then relaunch Vex.`)))
+    venvProc.on('exit', (code) => {
+      if (code !== 0) return reject(new Error(`python3 -m venv failed (exit ${code}). Install Python 3 from python.org.`))
+
+      setStatus(loadingWin, 'Installing dependencies (1–2 min first time)…')
+
+      const pipProc = spawn(PIP, ['install', '-r', 'requirements.txt', '--quiet'], {
+        cwd: API_DIR,
+        env: { ...process.env, PATH: `/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin` },
+      })
+      let pipErr = ''
+      pipProc.stderr.on('data', (d) => { pipErr += d.toString() })
+      pipProc.on('error', (e) => reject(new Error(`pip failed: ${e.message}`)))
+      pipProc.on('exit', (code) => {
+        if (code !== 0) return reject(new Error(`pip install failed:\n${pipErr.slice(-300)}`))
+        resolve()
+      })
+    })
+  })
+}
+
+function startAPI() {
+  apiProc = spawn(UVICORN, ['main:app', '--host', '127.0.0.1', '--port', '8000'], {
+    cwd: API_DIR,
     env: ENV,
   })
 
@@ -95,8 +127,6 @@ function waitForAPI(timeoutMs = 45000) {
       apiProc.once('exit', (code) => {
         if (!isQuitting) reject(new Error(`API exited (code ${code})\n\n${apiLastError}`))
       })
-    } else {
-      return reject(new Error(apiLastError || 'API process could not be started'))
     }
 
     const check = () => {
@@ -266,17 +296,28 @@ app.whenReady().then(async () => {
   // Reuse existing API if already running (dev sessions, previous crash-restarts)
   const alreadyUp = await isAPIAlreadyUp()
   if (!alreadyUp) {
+    // Auto-setup Python venv on first launch (or after venv was deleted)
+    if (!fs.existsSync(UVICORN)) {
+      try {
+        await setupVenv(loading)
+      } catch (err) {
+        loading.close()
+        dialog.showErrorBox('Setup failed', err.message)
+        app.quit()
+        return
+      }
+    }
+
+    setStatus(loading, 'Starting API…')
     const proc = startAPI()
 
     // Show live stderr in loading screen so user knows what's happening
-    if (proc) {
-      proc.stderr.on('data', (d) => {
-        const line = d.toString().trim().split('\n').pop() || ''
-        if (line && !line.includes('DeprecationWarning')) {
-          setStatus(loading, line.length > 60 ? line.slice(0, 57) + '…' : line)
-        }
-      })
-    }
+    proc.stderr.on('data', (d) => {
+      const line = d.toString().trim().split('\n').pop() || ''
+      if (line && !line.includes('DeprecationWarning')) {
+        setStatus(loading, line.length > 60 ? line.slice(0, 57) + '…' : line)
+      }
+    })
 
     try {
       await waitForAPI()
