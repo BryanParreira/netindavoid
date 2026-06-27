@@ -71,8 +71,13 @@ async def list_alerts(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    from services.active_network import get_active_network_id
+    network_id = await get_active_network_id()
+
     since = datetime.now(timezone.utc) - timedelta(hours=hours)
     q = select(Alert).where(Alert.tenant_id == user.tenant_id, Alert.triggered_at >= since)
+    if network_id:
+        q = q.where(Alert.network_id == network_id)
     if severity:
         q = q.where(Alert.severity == severity)
     if status:
@@ -87,12 +92,17 @@ async def alert_stats(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    from services.active_network import get_active_network_id
+    network_id = await get_active_network_id()
+
     since = datetime.now(timezone.utc) - timedelta(hours=hours)
-    result = await db.execute(
+    q = (
         select(Alert.severity, func.count(Alert.id))
         .where(Alert.tenant_id == user.tenant_id, Alert.triggered_at >= since)
-        .group_by(Alert.severity)
     )
+    if network_id:
+        q = q.where(Alert.network_id == network_id)
+    result = await db.execute(q.group_by(Alert.severity))
     return {
         str(row[0]).split(".")[-1].lower(): row[1]
         for row in result.all()

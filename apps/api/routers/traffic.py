@@ -72,9 +72,12 @@ async def _collect_netstat_sample(tenant_id: str):
 
             if delta_in > 0 or delta_out > 0:
                 from core.database import AsyncSessionLocal
+                from services.active_network import get_active_network_id
+                network_id = await get_active_network_id()
                 async with AsyncSessionLocal() as db:
                     sample = TrafficSample(
                         tenant_id=uuid.UUID(tenant_id),
+                        network_id=network_id,
                         bytes_in=delta_in,
                         bytes_out=delta_out,
                         sampled_at=now,
@@ -94,12 +97,14 @@ async def traffic_overview(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    from services.network import get_subnet_cidr
-    current_cidr = get_subnet_cidr()
+    from services.active_network import get_active_network_id
+    network_id = await get_active_network_id()
     since = datetime.now(timezone.utc) - timedelta(hours=hours)
 
-    # Only include samples tagged with the current subnet (or untagged legacy rows)
-    subnet_filter = "AND (interface = :cidr OR interface IS NULL)"
+    network_filter = "AND (network_id = :network_id OR network_id IS NULL)" if network_id else ""
+    params_base = {"tenant_id": str(user.tenant_id), "since": since}
+    if network_id:
+        params_base["network_id"] = str(network_id)
 
     # Aggregate totals
     agg = await db.execute(text(f"""
@@ -109,19 +114,20 @@ async def traffic_overview(
             COALESCE(MAX(bytes_in / 60.0 * 8 / 1e6), 0) as peak_mbps_in,
             COALESCE(MAX(bytes_out / 60.0 * 8 / 1e6), 0) as peak_mbps_out
         FROM traffic_samples
-        WHERE tenant_id = :tenant_id AND sampled_at >= :since {subnet_filter}
-    """), {"tenant_id": str(user.tenant_id), "since": since, "cidr": current_cidr})
+        WHERE tenant_id = :tenant_id AND sampled_at >= :since {network_filter}
+    """), params_base)
     row = agg.fetchone()
 
     # Current (last 5 min)
     last_5 = datetime.now(timezone.utc) - timedelta(minutes=5)
+    params_5m = {**params_base, "since": last_5}
     cur = await db.execute(text(f"""
         SELECT
             COALESCE(SUM(bytes_in) / 300.0 * 8 / 1e6, 0) as cur_in,
             COALESCE(SUM(bytes_out) / 300.0 * 8 / 1e6, 0) as cur_out
         FROM traffic_samples
-        WHERE tenant_id = :tenant_id AND sampled_at >= :since {subnet_filter}
-    """), {"tenant_id": str(user.tenant_id), "since": last_5, "cidr": current_cidr})
+        WHERE tenant_id = :tenant_id AND sampled_at >= :since {network_filter}
+    """), params_5m)
     cur_row = cur.fetchone()
 
     summary = BandwidthSummary(
@@ -134,7 +140,8 @@ async def traffic_overview(
     )
 
     # Top talkers
-    talkers_result = await db.execute(text("""
+    talker_network_filter = "AND (ts.network_id = :network_id OR ts.network_id IS NULL)" if network_id else ""
+    talkers_result = await db.execute(text(f"""
         SELECT
             ts.device_id,
             d.display_name,
@@ -147,11 +154,11 @@ async def traffic_overview(
         LEFT JOIN devices d ON ts.device_id = d.id
         WHERE ts.tenant_id = :tenant_id AND ts.sampled_at >= :since
           AND ts.device_id IS NOT NULL
-          AND (ts.interface = :cidr OR ts.interface IS NULL)
+          {talker_network_filter}
         GROUP BY ts.device_id, d.display_name, d.hostname, d.mac_address
         ORDER BY total DESC
         LIMIT 10
-    """), {"tenant_id": str(user.tenant_id), "since": since, "cidr": current_cidr})
+    """), params_base)
 
     total_traffic = int(row[0]) + int(row[1]) or 1
     talkers = []
@@ -174,10 +181,10 @@ async def traffic_overview(
             SUM(bytes_in) as bytes_in,
             SUM(bytes_out) as bytes_out
         FROM traffic_samples
-        WHERE tenant_id = :tenant_id AND sampled_at >= :since {subnet_filter}
+        WHERE tenant_id = :tenant_id AND sampled_at >= :since {network_filter}
         GROUP BY bucket
         ORDER BY bucket ASC
-    """), {"tenant_id": str(user.tenant_id), "since": since, "cidr": current_cidr})
+    """), params_base)
 
     timeseries = [TrafficPoint(ts=r[0], bytes_in=int(r[1]), bytes_out=int(r[2])) for r in ts_result.fetchall()]
 

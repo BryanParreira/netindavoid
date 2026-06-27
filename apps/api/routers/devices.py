@@ -1,5 +1,3 @@
-import ipaddress
-
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update, and_
@@ -17,25 +15,6 @@ import orjson
 router = APIRouter(prefix="/devices", tags=["devices"])
 
 
-def _current_subnet() -> ipaddress.IPv4Network | None:
-    """Return the active LAN subnet, or None if detection fails."""
-    try:
-        from services.network import get_subnet_cidr
-        return ipaddress.ip_network(get_subnet_cidr(), strict=False)
-    except Exception:
-        return None
-
-
-def _in_subnet(ip: str | None, net: ipaddress.IPv4Network | None) -> bool:
-    """True if ip belongs to net; always True when net is None (fallback)."""
-    if net is None or not ip:
-        return True
-    try:
-        return ipaddress.ip_address(ip) in net
-    except ValueError:
-        return False
-
-
 @router.get("", response_model=DeviceListResponse)
 async def list_devices(
     status: str | None = Query(None, enum=["online", "offline", "unknown"]),
@@ -46,10 +25,12 @@ async def list_devices(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # Detect current LAN subnet — devices outside it are from previous networks
-    net = _current_subnet()
+    from services.active_network import get_active_network_id
+    network_id = await get_active_network_id()
 
     q = select(Device).where(Device.tenant_id == user.tenant_id)
+    if network_id:
+        q = q.where(Device.network_id == network_id)
     if status:
         q = q.where(Device.status == DeviceStatus[status.upper()])
     if category:
@@ -62,25 +43,19 @@ async def list_devices(
             | Device.mac_address.ilike(f"%{search}%")
         )
 
-    # Fetch all (no DB-level IP range query needed at home-network scale)
     devices_result = await db.execute(
         q.order_by(Device.last_seen_at.desc().nullslast())
     )
     all_devices = devices_result.scalars().all()
 
-    # Filter to current subnet only
-    filtered = [d for d in all_devices if _in_subnet(d.ip_address, net)]
-
-    # Derive counts from filtered list
     yesterday = datetime.now(timezone.utc) - timedelta(days=1)
-    online   = sum(1 for d in filtered if d.status == DeviceStatus.ONLINE)
-    offline  = sum(1 for d in filtered if d.status == DeviceStatus.OFFLINE)
-    new_today = sum(1 for d in filtered if d.first_seen_at and d.first_seen_at >= yesterday)
-    total    = len(filtered)
+    online    = sum(1 for d in all_devices if d.status == DeviceStatus.ONLINE)
+    offline   = sum(1 for d in all_devices if d.status == DeviceStatus.OFFLINE)
+    new_today = sum(1 for d in all_devices if d.first_seen_at and d.first_seen_at >= yesterday)
+    total     = len(all_devices)
 
-    # Apply pagination to filtered list
     start = (page - 1) * limit
-    paged = filtered[start: start + limit]
+    paged = all_devices[start: start + limit]
 
     return DeviceListResponse(
         items=[_to_response(d) for d in paged],

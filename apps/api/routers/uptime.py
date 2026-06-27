@@ -65,37 +65,24 @@ def _calc_uptime(beats: list) -> float:
 # ── Background ping task ──────────────────────────────────────────────────────
 
 async def ping_all_devices_task(tenant_id: str):
-    """Ping devices in the current subnet and store heartbeat in Redis."""
-    import ipaddress as _ipaddress
+    """Ping devices in the current network and store heartbeat in Redis."""
     try:
         tid = _uuid.UUID(tenant_id)
     except Exception:
         return
 
-    # Limit pings to the currently active subnet
-    try:
-        from services.network import get_subnet_cidr
-        current_net = _ipaddress.ip_network(get_subnet_cidr(), strict=False)
-    except Exception:
-        current_net = None
-
-    def _in_net(ip: str) -> bool:
-        if current_net is None:
-            return True
-        try:
-            return _ipaddress.ip_address(ip) in current_net
-        except ValueError:
-            return False
+    from services.active_network import get_active_network_id
+    network_id = await get_active_network_id()
 
     from core.database import AsyncSessionLocal
     async with AsyncSessionLocal() as db:
-        result = await db.execute(
-            select(Device).where(Device.tenant_id == tid, Device.ip_address.isnot(None)).limit(200)
-        )
+        q = select(Device).where(Device.tenant_id == tid, Device.ip_address.isnot(None))
+        if network_id:
+            q = q.where(Device.network_id == network_id)
+        result = await db.execute(q.limit(200))
         devices = result.scalars().all()
 
-    tasks = [(str(dev.id), dev.ip_address) for dev in devices
-             if dev.ip_address and _in_net(dev.ip_address)]
+    tasks = [(str(dev.id), dev.ip_address) for dev in devices if dev.ip_address]
 
     async def probe(device_id: str, ip: str):
         up, ms = await _ping(ip)

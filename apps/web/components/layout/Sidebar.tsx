@@ -1,10 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAlertsStore } from "@/store/alerts";
 import Image from "next/image";
+import { api } from "@/lib/api";
 import {
   Search, BarChart3, Home,
   Bell, Globe, Wifi, ScanSearch, BotMessageSquare,
@@ -56,6 +57,19 @@ export function Sidebar() {
   const pathname = usePathname();
   const unread   = useAlertsStore((s) => s.unreadCount);
   const [collapsed, setCollapsed] = useState(false);
+  const [currentNetwork, setCurrentNetwork] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchNetwork = async () => {
+      try {
+        const r = await api.get("/network/current");
+        setCurrentNetwork(r.data.network);
+      } catch {}
+    };
+    fetchNetwork();
+    const interval = setInterval(fetchNetwork, 30_000);
+    return () => clearInterval(interval);
+  }, []);
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -182,6 +196,29 @@ export function Sidebar() {
           {!collapsed && <span>Settings</span>}
         </Link>
       </div>
+
+      {/* ── Active network pill ── */}
+      {!collapsed && currentNetwork && (
+        <div
+          className="mx-1.5 mb-1 rounded-[4px] px-2 py-2 border"
+          style={{ borderColor: "hsl(240 4% 16%)", background: "hsl(240 5% 9%)" }}
+        >
+          <div className="flex items-center gap-1.5">
+            <span
+              className="h-1.5 w-1.5 rounded-full shrink-0"
+              style={{
+                background: currentNetwork.is_trusted ? "#22d3ee" : "#f59e0b",
+              }}
+            />
+            <span className="text-[10px] truncate" style={{ color: "#737373" }}>
+              {currentNetwork.display_name ||
+                currentNetwork.ssid ||
+                currentNetwork.subnet_cidr ||
+                currentNetwork.gateway_mac}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* ── Collapse toggle ── */}
       <button

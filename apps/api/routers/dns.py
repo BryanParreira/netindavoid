@@ -15,36 +15,43 @@ async def dns_overview(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    from services.active_network import get_active_network_id
+    network_id = await get_active_network_id()
     since = datetime.now(timezone.utc) - timedelta(hours=hours)
 
-    stats = await db.execute(text("""
+    network_clause = "AND (network_id = :network_id OR network_id IS NULL)" if network_id else ""
+    params: dict = {"tenant_id": str(user.tenant_id), "since": since}
+    if network_id:
+        params["network_id"] = str(network_id)
+
+    stats = await db.execute(text(f"""
         SELECT
             COUNT(*) as total,
             SUM(CASE WHEN is_blocked THEN 1 ELSE 0 END) as blocked,
             SUM(CASE WHEN is_malicious THEN 1 ELSE 0 END) as malicious,
             COUNT(DISTINCT domain) as unique_domains
         FROM dns_queries
-        WHERE tenant_id = :tenant_id AND queried_at >= :since
-    """), {"tenant_id": str(user.tenant_id), "since": since})
+        WHERE tenant_id = :tenant_id AND queried_at >= :since {network_clause}
+    """), params)
     row = stats.fetchone()
 
-    top_domains = await db.execute(text("""
+    top_domains = await db.execute(text(f"""
         SELECT domain, COUNT(*) as count, bool_or(is_blocked) as blocked
         FROM dns_queries
-        WHERE tenant_id = :tenant_id AND queried_at >= :since
+        WHERE tenant_id = :tenant_id AND queried_at >= :since {network_clause}
         GROUP BY domain
         ORDER BY count DESC
         LIMIT 20
-    """), {"tenant_id": str(user.tenant_id), "since": since})
+    """), params)
 
-    blocked_domains = await db.execute(text("""
+    blocked_domains = await db.execute(text(f"""
         SELECT domain, COUNT(*) as count
         FROM dns_queries
-        WHERE tenant_id = :tenant_id AND queried_at >= :since AND is_blocked = true
+        WHERE tenant_id = :tenant_id AND queried_at >= :since AND is_blocked = true {network_clause}
         GROUP BY domain
         ORDER BY count DESC
         LIMIT 10
-    """), {"tenant_id": str(user.tenant_id), "since": since})
+    """), params)
 
     return {
         "total": int(row[0]),
@@ -66,10 +73,15 @@ async def list_queries(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    from services.active_network import get_active_network_id
+    network_id = await get_active_network_id()
     since = datetime.now(timezone.utc) - timedelta(hours=hours)
     conditions = "tenant_id = :tenant_id AND queried_at >= :since"
     params: dict = {"tenant_id": str(user.tenant_id), "since": since}
 
+    if network_id:
+        conditions += " AND (network_id = :network_id OR network_id IS NULL)"
+        params["network_id"] = str(network_id)
     if domain:
         conditions += " AND domain ILIKE :domain"
         params["domain"] = f"%{domain}%"
@@ -109,6 +121,8 @@ async def collect_dns(
     Works on any macOS without special permissions.
     """
     import asyncio, uuid as _uuid, hashlib, socket as _socket
+    from services.active_network import get_active_network_id
+    network_id = await get_active_network_id()
 
     collected = 0
     now = datetime.now(timezone.utc)
@@ -165,11 +179,12 @@ async def collect_dns(
         ).hexdigest())
         await db.execute(text("""
             INSERT INTO dns_queries
-                (id, tenant_id, domain, query_type, queried_at, is_blocked, is_malicious, resolved_ip, source)
-            VALUES (:id, :tid, :domain, 'A', :ts, false, false, :ip, 'netstat-rdns')
+                (id, tenant_id, network_id, domain, query_type, queried_at, is_blocked, is_malicious, resolved_ip, source)
+            VALUES (:id, :tid, :network_id, :domain, 'A', :ts, false, false, :ip, 'netstat-rdns')
             ON CONFLICT (id) DO NOTHING
         """), {
             "id": str(det_id), "tid": str(user.tenant_id),
+            "network_id": str(network_id) if network_id else None,
             "domain": domain, "ts": now, "ip": resolved_ip,
         })
         collected += 1

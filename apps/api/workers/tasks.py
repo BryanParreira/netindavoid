@@ -73,6 +73,8 @@ async def _run_network_scan_async(scan_id: str, tenant_id: str, scan_type: str):
 
         try:
             from services.network import get_subnet_cidr
+            from services.active_network import get_active_network_id
+            network_id = await get_active_network_id()
             cidr = scan.target_cidr or get_subnet_cidr()
             logger.info("scanning network", cidr=cidr)
             hosts = scan_network(cidr)
@@ -106,6 +108,7 @@ async def _run_network_scan_async(scan_id: str, tenant_id: str, scan_type: str):
                         # Different MAC claiming same IP → ARP spoofing
                         spoof_alert = Alert(
                             tenant_id=uuid.UUID(tenant_id),
+                            network_id=network_id,
                             device_id=device.id,
                             title=f"ARP Spoofing Detected — {ip}",
                             description=(
@@ -129,6 +132,7 @@ async def _run_network_scan_async(scan_id: str, tenant_id: str, scan_type: str):
                 if device is None:
                     device = Device(
                         tenant_id=uuid.UUID(tenant_id),
+                        network_id=network_id,
                         mac_address=mac,
                         ip_address=ip,
                         hostname=host.get("hostname"),
@@ -152,6 +156,7 @@ async def _run_network_scan_async(scan_id: str, tenant_id: str, scan_type: str):
                     vendor_str = host.get("vendor") or mac
                     new_alert = Alert(
                         tenant_id=uuid.UUID(tenant_id),
+                        network_id=network_id,
                         device_id=device.id,
                         title=f"New Device Joined Network — {host.get('hostname') or ip}",
                         description=(

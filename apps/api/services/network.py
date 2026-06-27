@@ -177,6 +177,43 @@ def get_dns_servers() -> list[str]:
     return servers
 
 
+def get_gateway_mac() -> str | None:
+    """
+    Return the MAC address of the default gateway.
+    This is the stable fingerprint for a physical network —
+    unique per router regardless of subnet or IP assignment.
+    """
+    gw_ip = get_gateway()
+    if not gw_ip:
+        return None
+    try:
+        from services.scanner import _mac_from_arp_cache
+        mac = _mac_from_arp_cache(gw_ip)
+        return mac.upper() if mac else None
+    except Exception:
+        return None
+
+
+def get_ssid() -> str | None:
+    """
+    Try to read the current WiFi SSID on macOS.
+    Returns None on failure or if on Ethernet.
+    """
+    try:
+        result = subprocess.run(
+            ["/System/Library/PrivateFrameworks/Apple80211.framework"
+             "/Versions/Current/Resources/airport", "-I"],
+            capture_output=True, text=True, timeout=5,
+        )
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if line.startswith("SSID:"):
+                return line.split(":", 1)[1].strip()
+    except Exception:
+        pass
+    return None
+
+
 def network_info() -> dict:
     """All network info in one call — used by the /network/info endpoint."""
     iface  = get_active_interface()

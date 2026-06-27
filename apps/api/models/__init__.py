@@ -1,5 +1,6 @@
 from models.tenant import Tenant
 from models.user import User, UserRole
+from models.network import Network
 from models.device import Device, DeviceEvent, DeviceTag
 from models.traffic import TrafficSample
 from models.dns import DnsQuery
@@ -13,6 +14,7 @@ from models.saved_search import SavedSearch
 
 __all__ = [
     "Tenant", "User", "UserRole",
+    "Network",
     "Device", "DeviceEvent", "DeviceTag",
     "TrafficSample", "DnsQuery",
     "Alert", "AlertRule", "AlertSeverity",

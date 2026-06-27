@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import { TopBar } from "@/components/layout/TopBar";
 import toast from "react-hot-toast";
-import { Server, Network, Cpu, RefreshCw, Loader2 } from "lucide-react";
+import { Server, Network, Cpu, RefreshCw, Loader2, Globe } from "lucide-react";
 
 const Field = ({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) => (
   <div className="space-y-1.5">
@@ -39,11 +39,15 @@ export default function SettingsPage() {
   const [apiUrl, setApiUrl]         = useState("http://localhost:8000");
   const [version, setVersion]       = useState<any>(null);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [networks, setNetworks]     = useState<any[]>([]);
+  const [editingId, setEditingId]   = useState<string | null>(null);
+  const [editName, setEditName]     = useState("");
 
   useEffect(() => {
     setApiUrl(process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000");
     fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/version`)
       .then(r => r.json()).then(setVersion).catch(() => {});
+    api.get("/network/history").then(r => setNetworks(r.data)).catch(() => {});
   }, []);
 
   const saveNetwork = async () => {
@@ -52,6 +56,15 @@ export default function SettingsPage() {
       localStorage.setItem("scan_cidr", scanCidr);
       toast.success("Network config saved");
     } catch { toast.error("Save failed"); }
+  };
+
+  const renameNetwork = async (id: string) => {
+    try {
+      await api.patch(`/network/history/${id}`, { display_name: editName });
+      setNetworks(nets => nets.map(n => n.id === id ? { ...n, display_name: editName } : n));
+      setEditingId(null);
+      toast.success("Network renamed");
+    } catch { toast.error("Failed to rename"); }
   };
 
   const checkUpdate = async () => {
@@ -80,6 +93,76 @@ export default function SettingsPage() {
               style={{ background: "#7c3aed" }}>
               Save
             </button>
+          </Section>
+
+          <Section icon={Globe} title="Network History">
+            <p className="text-[11px]" style={{ color: "hsl(240 4% 40%)" }}>
+              Each physical network (identified by its router&apos;s MAC address) is stored separately.
+              Data from different networks never mixes.
+            </p>
+            <div className="space-y-2 mt-2">
+              {networks.length === 0 && (
+                <p className="text-[11px]" style={{ color: "hsl(240 4% 30%)" }}>
+                  No networks detected yet. The app will register your current network automatically.
+                </p>
+              )}
+              {networks.map((net) => (
+                <div
+                  key={net.id}
+                  className="flex items-center gap-3 rounded-sm border px-3 py-2"
+                  style={{
+                    borderColor: net.is_active ? "#7c3aed" : "hsl(240 4% 18%)",
+                    background: "hsl(240 7% 7%)",
+                  }}
+                >
+                  <span
+                    className="h-2 w-2 rounded-full shrink-0"
+                    style={{ background: net.is_active ? "#22d3ee" : "hsl(240 4% 30%)" }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    {editingId === net.id ? (
+                      <div className="flex gap-2">
+                        <Input
+                          value={editName}
+                          onChange={e => setEditName(e.target.value)}
+                          onKeyDown={e => e.key === "Enter" && renameNetwork(net.id)}
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => renameNetwork(net.id)}
+                          className="text-[11px] px-2 rounded-sm"
+                          style={{ background: "#7c3aed", color: "#fff" }}
+                        >Save</button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="text-[11px] px-2 rounded-sm"
+                          style={{ color: "hsl(240 4% 40%)" }}
+                        >✕</button>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-[12px] font-medium truncate" style={{ color: "#ededed" }}>
+                          {net.display_name || net.ssid || net.subnet_cidr || net.gateway_mac}
+                        </p>
+                        <p className="text-[10px] font-mono" style={{ color: "hsl(240 4% 40%)" }}>
+                          {net.gateway_mac} · {net.subnet_cidr}
+                          {net.is_active && (
+                            <span className="ml-2" style={{ color: "#22d3ee" }}>● active</span>
+                          )}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                  {editingId !== net.id && (
+                    <button
+                      onClick={() => { setEditingId(net.id); setEditName(net.display_name || ""); }}
+                      className="text-[10px] shrink-0"
+                      style={{ color: "hsl(240 4% 40%)" }}
+                    >rename</button>
+                  )}
+                </div>
+              ))}
+            </div>
           </Section>
 
           <Section icon={Cpu} title="AI Provider">

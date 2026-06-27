@@ -72,6 +72,7 @@ async def _ingest_one(
     host:       str | None = None,
     extra:      dict | None = None,
     redis=None,
+    network_id=None,
 ) -> LogEvent:
     st, parsed = parse_line(message, sourcetype)
     if not parsed:
@@ -82,6 +83,7 @@ async def _ingest_one(
 
     evt = LogEvent(
         tenant_id  = uuid.UUID(tenant_id),
+        network_id = network_id,
         timestamp  = timestamp or parsed.get("timestamp") or datetime.now(timezone.utc),
         index_name = index_name,
         source     = source or parsed.get("source"),
@@ -512,43 +514,56 @@ def _serialize_ss(s: SavedSearch) -> dict:
 
 @router.get("/indexes")
 async def list_indexes(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    rows = (await db.execute(
+    from services.active_network import get_active_network_id
+    network_id = await get_active_network_id()
+    q = (
         select(LogEvent.index_name, func.count().label("count"))
         .where(LogEvent.tenant_id == user.tenant_id)
-        .group_by(LogEvent.index_name)
-        .order_by(func.count().desc())
-    )).fetchall()
+    )
+    if network_id:
+        q = q.where((LogEvent.network_id == network_id) | LogEvent.network_id.is_(None))
+    rows = (await db.execute(q.group_by(LogEvent.index_name).order_by(func.count().desc()))).fetchall()
     return [{"name": r[0], "count": r[1]} for r in rows]
 
 
 @router.get("/sourcetypes")
 async def list_sourcetypes(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    rows = (await db.execute(
+    from services.active_network import get_active_network_id
+    network_id = await get_active_network_id()
+    q = (
         select(LogEvent.sourcetype, func.count().label("count"))
         .where(and_(LogEvent.tenant_id == user.tenant_id, LogEvent.sourcetype.isnot(None)))
-        .group_by(LogEvent.sourcetype)
-        .order_by(func.count().desc())
-        .limit(50)
-    )).fetchall()
+    )
+    if network_id:
+        q = q.where((LogEvent.network_id == network_id) | LogEvent.network_id.is_(None))
+    rows = (await db.execute(q.group_by(LogEvent.sourcetype).order_by(func.count().desc()).limit(50))).fetchall()
     return [{"name": r[0], "count": r[1]} for r in rows]
 
 
 @router.get("/stats")
 async def log_stats(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    from services.active_network import get_active_network_id
+    network_id = await get_active_network_id()
     since_24h = datetime.now(timezone.utc) - timedelta(hours=24)
+
+    net_clause = ((LogEvent.network_id == network_id) | LogEvent.network_id.is_(None)) if network_id else True
+
     total = (await db.execute(
-        select(func.count()).select_from(LogEvent).where(LogEvent.tenant_id == user.tenant_id)
+        select(func.count()).select_from(LogEvent).where(
+            and_(LogEvent.tenant_id == user.tenant_id, net_clause)
+        )
     )).scalar() or 0
     last_24h = (await db.execute(
         select(func.count()).select_from(LogEvent).where(
-            and_(LogEvent.tenant_id == user.tenant_id, LogEvent.timestamp >= since_24h)
+            and_(LogEvent.tenant_id == user.tenant_id, LogEvent.timestamp >= since_24h, net_clause)
         )
     )).scalar() or 0
     critical = (await db.execute(
         select(func.count()).select_from(LogEvent).where(
             and_(LogEvent.tenant_id == user.tenant_id,
                  LogEvent.timestamp >= since_24h,
-                 LogEvent.severity.in_(["critical", "error"]))
+                 LogEvent.severity.in_(["critical", "error"]),
+                 net_clause)
         )
     )).scalar() or 0
     return {"total_events": total, "last_24h": last_24h, "critical_24h": critical}

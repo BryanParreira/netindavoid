@@ -82,12 +82,13 @@ async def list_scans(
     user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Scan)
-        .where(Scan.tenant_id == user.tenant_id)
-        .order_by(Scan.created_at.desc())
-        .limit(limit)
-    )
+    from services.active_network import get_active_network_id
+    network_id = await get_active_network_id()
+
+    q = select(Scan).where(Scan.tenant_id == user.tenant_id)
+    if network_id:
+        q = q.where(Scan.network_id == network_id)
+    result = await db.execute(q.order_by(Scan.created_at.desc()).limit(limit))
     scans = result.scalars().all()
     return [
         {

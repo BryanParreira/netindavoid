@@ -32,6 +32,7 @@ class LogEvent(Base):
 
     id: Mapped[uuid.UUID]         = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID]  = mapped_column(UUID(as_uuid=True), nullable=False)
+    network_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
 
     # Event time (from log itself, not ingest time)
     timestamp: Mapped[datetime]   = mapped_column(DateTime(timezone=True), nullable=False)
