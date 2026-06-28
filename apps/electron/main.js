@@ -121,11 +121,19 @@ function setupVenv(loadingWin) {
       'echo ""',
 
       // ── 1. Python venv ──────────────────────────────────────────────────────
+      // Prefer Python 3.11-3.13 — psycopg2-binary and other packages
+      // don't have pre-built wheels for 3.14+ yet, causing source builds to fail.
       'echo "[1/4] Creating Python environment..."',
-      `python3 -m venv "${VENV_DIR}"`,
+      'PYTHON=""',
+      'for v in python3.13 python3.12 python3.11 python3.10; do',
+      '  if command -v "$v" &>/dev/null; then PYTHON="$v"; break; fi',
+      'done',
+      '[ -z "$PYTHON" ] && PYTHON=python3',
+      'echo "Using $($PYTHON --version)"',
+      `"$PYTHON" -m venv "${VENV_DIR}"`,
       `"${VENV_BIN}/pip" install --upgrade pip --quiet`,
       'echo "[2/4] Installing Python dependencies (1-3 min)..."',
-      `"${VENV_BIN}/pip" install -r "${API_SRC}/requirements.txt" --quiet`,
+      `"${VENV_BIN}/pip" install --prefer-binary -r "${API_SRC}/requirements.txt" --quiet`,
 
       // ── 2. PostgreSQL ───────────────────────────────────────────────────────
       'echo "[3/4] Setting up database..."',
