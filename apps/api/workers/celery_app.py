@@ -38,4 +38,8 @@ celery_app.conf.beat_schedule = {
         "task": "workers.tasks.compute_security_scores",
         "schedule": crontab(minute="*/5"),
     },
+    "ping-devices-every-60s": {
+        "task": "workers.tasks.ping_all_devices",
+        "schedule": 60.0,
+    },
 }

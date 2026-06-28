@@ -1,10 +1,11 @@
 """
-Network flows — reads active connections from macOS netstat + enriches with GeoIP-lite.
+Network flows — reads active connections from macOS netstat + enriches with GeoIP.
 Caches results in Redis for 30s to avoid hammering netstat.
+GeoIP: ipinfo.io (free, no key needed) with 7-day Redis cache per IP.
 """
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-import asyncio, json, socket, re
+import asyncio, json, socket, re, httpx
 from datetime import datetime, timezone
 
 from core.deps import get_current_user, get_db
@@ -130,6 +131,71 @@ def _assess_risk(port: str, state: str) -> str | None:
     return None
 
 
+def _cc_to_flag(cc: str) -> str | None:
+    """Convert 2-letter country code to flag emoji."""
+    if not cc or len(cc) != 2 or not cc.isalpha():
+        return None
+    return "".join(chr(0x1F1E6 + ord(c) - ord("A")) for c in cc.upper())
+
+
+async def _enrich_geoip(flows: list[dict], redis) -> list[dict]:
+    """
+    Fill country/flag for external IPs using ipinfo.io.
+    Results cached in Redis for 7 days to avoid repeat lookups.
+    """
+    external_ips = {f["remote_ip"] for f in flows if f["is_external"]}
+    if not external_ips:
+        return flows
+
+    geo: dict[str, tuple[str | None, str | None]] = {}
+
+    # Pull from Redis cache
+    if redis:
+        for ip in external_ips:
+            cached = await redis.get(f"geoip:{ip}")
+            if cached:
+                try:
+                    d = json.loads(cached)
+                    geo[ip] = (d.get("country"), d.get("flag"))
+                except Exception:
+                    pass
+
+    # Fetch uncached IPs concurrently (3s total timeout)
+    uncached = [ip for ip in external_ips if ip not in geo]
+    if uncached:
+        async def _fetch(ip: str, client: httpx.AsyncClient) -> None:
+            try:
+                resp = await client.get(
+                    f"https://ipinfo.io/{ip}/json",
+                    headers={"Accept": "application/json"},
+                    timeout=3.0,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    cc   = (data.get("country") or "").upper()
+                    flag = _cc_to_flag(cc)
+                    geo[ip] = (cc or None, flag)
+                    if redis and cc:
+                        await redis.set(
+                            f"geoip:{ip}",
+                            json.dumps({"country": cc, "flag": flag}),
+                            ex=604800,  # 7 days
+                        )
+            except Exception:
+                pass
+
+        async with httpx.AsyncClient() as client:
+            await asyncio.gather(*[_fetch(ip, client) for ip in uncached], return_exceptions=True)
+
+    for f in flows:
+        if f["is_external"]:
+            country, flag = geo.get(f["remote_ip"], (None, None))
+            f["country"] = country
+            f["flag"]    = flag
+
+    return flows
+
+
 async def _get_redis():
     try:
         from core.redis import get_redis
@@ -157,6 +223,7 @@ async def list_flows(
 
     if flows is None:
         flows = await _collect_flows()
+        flows = await _enrich_geoip(flows, redis)
         if redis:
             await redis.setex(REDIS_KEY, REDIS_TTL, json.dumps(flows))
 
@@ -182,6 +249,7 @@ async def refresh_flows(user: User = Depends(get_current_user)):
     if redis:
         await redis.delete(REDIS_KEY)
     flows = await _collect_flows()
+    flows = await _enrich_geoip(flows, redis)
     if redis:
         await redis.setex(REDIS_KEY, REDIS_TTL, json.dumps(flows))
     return {"total": len(flows)}

@@ -26,6 +26,7 @@ export default function MapPage() {
   const fgRef = useRef<any>(null);
 
   const { data, mutate } = useSWR("/devices?limit=200", fetcher, { refreshInterval: 15_000 });
+  const { data: networkInfo } = useSWR("/network/current", fetcher, { refreshInterval: 60_000 });
 
   // Responsive sizing
   useEffect(() => {
@@ -43,9 +44,10 @@ export default function MapPage() {
 
   const graphData = (() => {
     if (!data?.items?.length) return { nodes: [], links: [] };
+    const gatewayIp = networkInfo?.network?.gateway_ip ?? networkInfo?.gateway ?? "Gateway";
     const router = {
       id: "__router__", label: "Router / Gateway",
-      category: "network", status: "online", ip: "192.168.1.1",
+      category: "network", status: "online", ip: gatewayIp,
       isRouter: true, fx: dims.w / 2, fy: dims.h / 2,
     };
     const nodes = [router, ...data.items.map((d: any) => ({

@@ -155,6 +155,105 @@ async def _call_anthropic(cfg: AiConfig, question: str, context: Optional[dict])
         return resp.json()["content"][0]["text"], cfg.anthropic_model
 
 
+async def _fetch_live_context(tenant_id: str, db: AsyncSession) -> dict:
+    """Pull a rich live snapshot of network state to ground the AI answer."""
+    from sqlalchemy import text
+    tid = str(tenant_id)
+    ctx: dict = {}
+    try:
+        # Devices
+        r = await db.execute(text("""
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN status = 'online'  THEN 1 ELSE 0 END) AS online,
+                SUM(CASE WHEN status = 'offline' THEN 1 ELSE 0 END) AS offline,
+                SUM(CASE WHEN risk_score >= 70    THEN 1 ELSE 0 END) AS high_risk
+            FROM devices WHERE tenant_id = :tid
+        """), {"tid": tid})
+        row = r.fetchone()
+        ctx["devices"] = {
+            "total": int(row[0] or 0), "online": int(row[1] or 0),
+            "offline": int(row[2] or 0), "high_risk": int(row[3] or 0),
+        }
+
+        # High-risk device names
+        if ctx["devices"]["high_risk"] > 0:
+            r2 = await db.execute(text("""
+                SELECT COALESCE(display_name, hostname, ip_address), risk_score, ip_address
+                FROM devices WHERE tenant_id = :tid AND risk_score >= 70
+                ORDER BY risk_score DESC LIMIT 5
+            """), {"tid": tid})
+            ctx["high_risk_devices"] = [
+                {"name": row[0], "risk_score": row[1], "ip": row[2]}
+                for row in r2.fetchall()
+            ]
+
+        # Open alerts last 24h
+        r3 = await db.execute(text("""
+            SELECT severity, COUNT(*) FROM alerts
+            WHERE tenant_id = :tid AND status = 'open'
+            AND triggered_at >= NOW() - INTERVAL '24 hours'
+            GROUP BY severity ORDER BY severity
+        """), {"tid": tid})
+        ctx["open_alerts_by_severity"] = {row[0]: int(row[1]) for row in r3.fetchall()}
+
+        # Recent critical/high alerts (titles)
+        r4 = await db.execute(text("""
+            SELECT title, severity, category, triggered_at::text
+            FROM alerts
+            WHERE tenant_id = :tid AND status = 'open'
+            AND severity IN ('critical', 'high')
+            AND triggered_at >= NOW() - INTERVAL '24 hours'
+            ORDER BY triggered_at DESC LIMIT 8
+        """), {"tid": tid})
+        ctx["recent_critical_alerts"] = [
+            {"title": row[0], "severity": row[1], "category": row[2], "when": row[3]}
+            for row in r4.fetchall()
+        ]
+
+        # Malicious DNS (last 24h)
+        r5 = await db.execute(text("""
+            SELECT domain, COUNT(*) FROM dns_queries
+            WHERE tenant_id = :tid AND is_malicious = true
+            AND queried_at >= NOW() - INTERVAL '24 hours'
+            GROUP BY domain ORDER BY COUNT(*) DESC LIMIT 10
+        """), {"tid": tid})
+        ctx["malicious_dns_domains"] = [row[0] for row in r5.fetchall()]
+
+        # Current bandwidth (last 5 min)
+        r6 = await db.execute(text("""
+            SELECT
+                COALESCE(SUM(bytes_in) / 300.0 * 8 / 1e6, 0),
+                COALESCE(SUM(bytes_out) / 300.0 * 8 / 1e6, 0)
+            FROM traffic_samples
+            WHERE tenant_id = :tid AND sampled_at >= NOW() - INTERVAL '5 minutes'
+        """), {"tid": tid})
+        bw = r6.fetchone()
+        ctx["bandwidth_mbps"] = {
+            "download": round(float(bw[0] or 0), 2),
+            "upload":   round(float(bw[1] or 0), 2),
+        }
+
+        # Top bandwidth consumers (last hour)
+        r7 = await db.execute(text("""
+            SELECT COALESCE(d.display_name, d.hostname, d.ip_address, 'unknown'),
+                   SUM(ts.bytes_in + ts.bytes_out) AS total
+            FROM traffic_samples ts
+            LEFT JOIN devices d ON ts.device_id = d.id
+            WHERE ts.tenant_id = :tid AND ts.sampled_at >= NOW() - INTERVAL '1 hour'
+            AND ts.device_id IS NOT NULL
+            GROUP BY d.display_name, d.hostname, d.ip_address
+            ORDER BY total DESC LIMIT 5
+        """), {"tid": tid})
+        ctx["top_bandwidth_users"] = [
+            {"name": row[0], "bytes": int(row[1])} for row in r7.fetchall()
+        ]
+
+    except Exception:
+        pass
+    return ctx
+
+
 async def _call_provider(cfg: AiConfig, question: str, context: Optional[dict]) -> tuple[str, str]:
     if cfg.provider == "ollama":
         return await _call_ollama(cfg, question, context)
@@ -216,8 +315,12 @@ async def ai_query(
     cfg = await _load_config()
     start = time.monotonic()
 
+    # Always inject live network context; merge with any extra context from the client
+    live_ctx = await _fetch_live_context(user.tenant_id, db)
+    merged_ctx = {**live_ctx, **(body.context or {})}
+
     try:
-        answer, model_used = await _call_provider(cfg, body.question, body.context)
+        answer, model_used = await _call_provider(cfg, body.question, merged_ctx)
     except Exception as exc:
         raise HTTPException(
             status_code=503,

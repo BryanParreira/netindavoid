@@ -467,3 +467,26 @@ async def _collect_traffic_dns_async():
         await collect_dns(tid, r)
     finally:
         await r.aclose()
+
+
+@celery_app.task(name="workers.tasks.ping_all_devices")
+def ping_all_devices():
+    return _run_async(_ping_all_devices_async())
+
+
+async def _ping_all_devices_async():
+    """Ping every known device on the active network and record uptime beats."""
+    from core.database import AsyncSessionLocal
+    from models.tenant import Tenant
+    from routers.uptime import ping_all_devices_task
+    from sqlalchemy import select
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(Tenant).where(Tenant.is_active == True))
+        tenants = result.scalars().all()
+
+    for tenant in tenants:
+        try:
+            await ping_all_devices_task(str(tenant.id))
+        except Exception as e:
+            logger.warning("ping_all failed", tenant_id=str(tenant.id), error=str(e))
