@@ -7,56 +7,65 @@ const os = require('os')
 const fs = require('fs')
 const url = require('url')
 
-// ── Project root ──────────────────────────────────────────────────────────────
-// Resolution order:
-//   1. VEX_DIR env var (explicit override)
-//   2. Persisted path from last successful launch (stored in userData)
-//   3. Known default locations (Vex, netindavoid, vex on Desktop/home)
-//   4. Prompt user to pick the folder (first-launch / moved folder)
+// ── Paths ─────────────────────────────────────────────────────────────────────
+//
+// Packaged app  →  API source is bundled into Resources/api-src (read-only).
+//                  venv + .env live in userData (writable, survives updates).
+//
+// Dev (npm start) → fall back to PROJECT_ROOT scanning so local dev still works.
 
-const PERSIST_PATH = path.join(app.getPath('userData'), 'vex-project-root.txt')
+const USER_DATA = app.getPath('userData')
 
-function _readPersistedRoot() {
-  try { return fs.readFileSync(PERSIST_PATH, 'utf8').trim() } catch { return null }
-}
-
-function _persistRoot(p) {
-  try { fs.writeFileSync(PERSIST_PATH, p) } catch {}
-}
-
-function _findProjectRoot() {
+function _devProjectRoot() {
   if (process.env.VEX_DIR) return process.env.VEX_DIR
-
-  const persisted = _readPersistedRoot()
-  if (persisted && fs.existsSync(path.join(persisted, 'apps', 'api', 'main.py'))) return persisted
-
-  const candidates = [
+  const persist = path.join(USER_DATA, 'vex-project-root.txt')
+  try {
+    const p = fs.readFileSync(persist, 'utf8').trim()
+    if (p && fs.existsSync(path.join(p, 'apps', 'api', 'main.py'))) return p
+  } catch {}
+  for (const c of [
     path.join(os.homedir(), 'Desktop', 'Vex'),
     path.join(os.homedir(), 'Desktop', 'vex'),
     path.join(os.homedir(), 'Desktop', 'netindavoid'),
     path.join(os.homedir(), 'Vex'),
     path.join(os.homedir(), 'vex'),
     path.join(os.homedir(), 'netindavoid'),
-  ]
-  for (const c of candidates) {
+  ]) {
     if (fs.existsSync(path.join(c, 'apps', 'api', 'main.py'))) return c
   }
-  return null  // caller must prompt
+  return null
 }
 
-const PROJECT_ROOT = _findProjectRoot() || path.join(os.homedir(), 'Desktop', 'Vex')
+// API_SRC  = directory containing main.py (may be read-only when packaged)
+// VENV_DIR = directory where the venv lives (always writable)
+// DOT_ENV  = .env file written on first launch with localhost DB/Redis URLs
+const API_SRC  = app.isPackaged
+  ? path.join(process.resourcesPath, 'api-src')
+  : path.join(_devProjectRoot() || path.join(os.homedir(), 'Desktop', 'Vex'), 'apps', 'api')
 
-const VENV_BIN = path.join(PROJECT_ROOT, 'apps', 'api', '.venv', 'bin')
+const VENV_DIR = path.join(USER_DATA, '.venv')
+const VENV_BIN = path.join(VENV_DIR, 'bin')
+const DOT_ENV  = path.join(USER_DATA, '.env')
+
+// Local DB/Redis URLs — written into DOT_ENV on first launch
+const LOCAL_DB_URL    = 'postgresql+asyncpg://localhost:5432/vex'
+const LOCAL_REDIS_URL = 'redis://localhost:6379/0'
+
 const ENV = {
   ...process.env,
-  PATH: `${VENV_BIN}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin`,
-  NODE_ENV: 'production',
+  PATH: `${VENV_BIN}:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin`,
+  NODE_ENV:    'production',
+  // Override Docker-default URLs so the API talks to localhost services
+  DATABASE_URL:          LOCAL_DB_URL,
+  REDIS_URL:             LOCAL_REDIS_URL,
+  CELERY_BROKER_URL:     'redis://localhost:6379/1',
+  CELERY_RESULT_BACKEND: 'redis://localhost:6379/2',
 }
 
-// Static web files: bundled in packaged app, or local build in dev
+// Static web files
 const WEB_OUT = app.isPackaged
   ? path.join(process.resourcesPath, 'web-out')
-  : path.join(PROJECT_ROOT, 'apps', 'web', 'out')
+  : path.join(API_SRC, '..', '..', 'web', 'out')
 
 let mainWindow = null
 let tray = null
@@ -87,60 +96,84 @@ function setStatus(win, text) {
 // ── API process ───────────────────────────────────────────────────────────────
 let apiLastError = ''
 
-const API_DIR   = path.join(PROJECT_ROOT, 'apps', 'api')
-const UVICORN   = path.join(VENV_BIN, 'uvicorn')
-const PIP       = path.join(VENV_BIN, 'pip')
+const UVICORN = path.join(VENV_BIN, 'uvicorn')
 
-// Auto-setup: open a Terminal window to run the venv setup, then poll until done.
-// shell.openPath uses LaunchServices IPC (not subprocess spawn), so it works
-// even when hardened runtime blocks direct spawning of external binaries.
+// Auto-setup: open a Terminal to create the venv + install deps + init DB.
+// Venv is created in userData (writable) not in API_SRC (may be read-only).
 function setupVenv(loadingWin) {
   return new Promise((resolve, reject) => {
     const scriptPath = path.join(os.tmpdir(), 'vex-setup.command')
     const donePath   = path.join(os.tmpdir(), 'vex-setup-done')
 
-    // Remove any stale done-marker from a previous run
     try { fs.unlinkSync(donePath) } catch (_) {}
+
+    // Ensure userData dir exists so venv can be created there
+    try { fs.mkdirSync(USER_DATA, { recursive: true }) } catch (_) {}
 
     const script = [
       '#!/bin/bash',
       'set -e',
-      `cd "${API_DIR}"`,
+      'export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:$PATH"',
       'echo ""',
-      'echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"',
-      'echo "  Vex — one-time setup (do not close)"',
-      'echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"',
+      'echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"',
+      'echo "  Vex — first-time setup  (do not close this window)"',
+      'echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"',
       'echo ""',
-      'echo "[1/2] Creating Python environment..."',
-      'python3 -m venv .venv',
-      'echo "[2/2] Installing dependencies (this takes 1-2 min)..."',
-      '.venv/bin/pip install -r requirements.txt --quiet',
-      `touch "${donePath}"`,   // signal to Vex that setup finished
+
+      // ── 1. Python venv ──────────────────────────────────────────────────────
+      'echo "[1/4] Creating Python environment..."',
+      `python3 -m venv "${VENV_DIR}"`,
+      `"${VENV_BIN}/pip" install --upgrade pip --quiet`,
+      'echo "[2/4] Installing Python dependencies (1-3 min)..."',
+      `"${VENV_BIN}/pip" install -r "${API_SRC}/requirements.txt" --quiet`,
+
+      // ── 2. PostgreSQL ───────────────────────────────────────────────────────
+      'echo "[3/4] Setting up database..."',
+      // Start PostgreSQL if installed via Homebrew
+      'if command -v brew &>/dev/null; then',
+      '  PG_VER=$(brew list --formula 2>/dev/null | grep -E "^postgresql@" | sort -V | tail -1)',
+      '  [ -n "$PG_VER" ] && brew services start "$PG_VER" &>/dev/null || true',
+      '  brew services start redis &>/dev/null || true',
+      'fi',
+      // Give services a moment to start
+      'sleep 3',
+      // Create database (idempotent — errors if it already exists, which is fine)
+      'createdb vex 2>/dev/null || true',
+      // Run Alembic migrations
+      `cd "${API_SRC}"`,
+      `DATABASE_URL="${LOCAL_DB_URL}" "${VENV_BIN}/alembic" upgrade head 2>&1 || true`,
+      // Bootstrap admin user + default tenant
+      `DATABASE_URL="${LOCAL_DB_URL}" REDIS_URL="redis://localhost:6379/0" python3 -c "
+import asyncio, sys
+sys.path.insert(0, '${API_SRC}')
+import os
+os.environ.setdefault('DATABASE_URL', '${LOCAL_DB_URL}')
+os.environ.setdefault('REDIS_URL', 'redis://localhost:6379/0')
+from scripts.bootstrap import bootstrap_admin
+asyncio.run(bootstrap_admin())
+" 2>&1 || true`,
+
+      // ── 3. Done ─────────────────────────────────────────────────────────────
+      'echo "[4/4] Done!"',
+      `touch "${donePath}"`,
       'echo ""',
-      'echo "✓ Done! Vex is starting..."',
-      'sleep 3',               // let the user see the success message
+      'echo "✓ Setup complete — Vex is starting..."',
+      'sleep 3',
     ].join('\n')
 
     try {
       fs.writeFileSync(scriptPath, script, { mode: 0o755 })
     } catch (e) {
-      return reject(new Error(
-        'Could not write setup script.\n\nRun manually in Terminal:\n\n' +
-        `cd "${API_DIR}"\npython3 -m venv .venv\n.venv/bin/pip install -r requirements.txt\n\nThen relaunch Vex.`
-      ))
+      return reject(new Error('Could not write setup script: ' + e.message))
     }
 
     shell.openPath(scriptPath).then((openErr) => {
       if (openErr) {
-        return reject(new Error(
-          'Could not open Terminal for setup.\n\nRun manually:\n\n' +
-          `cd "${API_DIR}"\npython3 -m venv .venv\n.venv/bin/pip install -r requirements.txt\n\nThen relaunch Vex.`
-        ))
+        return reject(new Error('Could not open Terminal for setup: ' + openErr))
       }
 
-      setStatus(loadingWin, 'Setting up Python environment (Terminal opened)…')
+      setStatus(loadingWin, 'First-time setup running in Terminal…')
 
-      // Poll every 2 s for the done-marker; time out after 5 min
       let elapsed = 0
       const poll = setInterval(() => {
         elapsed += 2000
@@ -148,20 +181,34 @@ function setupVenv(loadingWin) {
           clearInterval(poll)
           try { fs.unlinkSync(donePath) } catch (_) {}
           resolve()
-        } else if (elapsed >= 300_000) {
+        } else if (elapsed >= 600_000) {  // 10 min timeout for first install
           clearInterval(poll)
-          reject(new Error(
-            'Setup timed out (5 min).\n\nCheck the Terminal window for errors, then relaunch Vex.'
-          ))
+          reject(new Error('Setup timed out (10 min). Check Terminal for errors, then relaunch Vex.'))
         }
       }, 2000)
     })
   })
 }
 
+// Try to start PostgreSQL + Redis via Homebrew (silent — best-effort).
+function startDependencies() {
+  return new Promise((resolve) => {
+    const proc = spawn('bash', ['-c', `
+      export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+      if command -v brew &>/dev/null; then
+        PG=$(brew list --formula 2>/dev/null | grep -E "^postgresql@" | sort -V | tail -1)
+        [ -n "$PG" ] && brew services start "$PG" &>/dev/null || true
+        brew services start redis &>/dev/null || true
+      fi
+    `], { env: process.env })
+    proc.on('close', () => resolve())
+    setTimeout(resolve, 8000)  // don't wait forever
+  })
+}
+
 function startAPI() {
   apiProc = spawn(UVICORN, ['main:app', '--host', '127.0.0.1', '--port', '8000'], {
-    cwd: API_DIR,
+    cwd: API_SRC,
     env: ENV,
   })
 
@@ -354,47 +401,15 @@ function isAPIAlreadyUp() {
 app.whenReady().then(async () => {
   registerAppProtocol()
 
-  // ── Validate project root before showing anything ────────────────────────
-  if (!fs.existsSync(path.join(PROJECT_ROOT, 'apps', 'api', 'main.py'))) {
-    const { response, filePaths } = await dialog.showOpenDialog({
-      title: 'Locate Vex project folder',
-      message: 'Vex could not find the backend source. Select the Vex project root folder (the one containing "apps/").',
-      buttonLabel: 'Select folder',
-      properties: ['openDirectory'],
-    })
-    if (response !== 0 || !filePaths?.length) {
-      app.quit()
-      return
-    }
-    const chosen = filePaths[0]
-    if (!fs.existsSync(path.join(chosen, 'apps', 'api', 'main.py'))) {
-      dialog.showErrorBox(
-        'Wrong folder',
-        `"${chosen}" does not look like a Vex project — apps/api/main.py not found.\n\nSelect the folder that contains the "apps" directory.`
-      )
-      app.quit()
-      return
-    }
-    _persistRoot(chosen)
-    // Restart with correct root — simpler than patching all derived constants at runtime
-    app.relaunch({ args: process.argv.slice(1), execPath: process.execPath, env: { ...process.env, VEX_DIR: chosen } })
-    app.quit()
-    return
-  }
-
-  // Root found — persist it so future launches skip the search
-  _persistRoot(PROJECT_ROOT)
-
   const loading = createLoadingWindow()
   await new Promise(r => setTimeout(r, 300))
 
-  setStatus(loading, 'Starting API…')
-
-  // Reuse existing API if already running (dev sessions, previous crash-restarts)
+  // Reuse existing API if already running (dev sessions / crash-restarts)
   const alreadyUp = await isAPIAlreadyUp()
   if (!alreadyUp) {
-    // Auto-setup Python venv on first launch (or after venv was deleted)
+    // First launch: venv doesn't exist yet — run full setup
     if (!fs.existsSync(UVICORN)) {
+      setStatus(loading, 'First-time setup — opening Terminal…')
       try {
         await setupVenv(loading)
       } catch (err) {
@@ -405,10 +420,13 @@ app.whenReady().then(async () => {
       }
     }
 
+    // Best-effort: start PostgreSQL + Redis via Homebrew
+    setStatus(loading, 'Starting services…')
+    await startDependencies()
+
     setStatus(loading, 'Starting API…')
     const proc = startAPI()
 
-    // Show live stderr in loading screen so user knows what's happening
     proc.stderr.on('data', (d) => {
       const line = d.toString().trim().split('\n').pop() || ''
       if (line && !line.includes('DeprecationWarning')) {
@@ -422,7 +440,12 @@ app.whenReady().then(async () => {
       loading.close()
       dialog.showErrorBox(
         'Startup failed',
-        `The API could not start.\n\n${err.message}\n\nMake sure PostgreSQL and Redis are running, then relaunch Vex.`
+        `The API could not start.\n\n${err.message}\n\n` +
+        `Make sure PostgreSQL and Redis are installed and running:\n` +
+        `  brew install postgresql redis\n` +
+        `  brew services start postgresql\n` +
+        `  brew services start redis\n\n` +
+        `Then relaunch Vex.`
       )
       app.quit()
       return
